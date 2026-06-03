@@ -1,37 +1,26 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Invernadero IoT - Monitoreo y Control</title>
-
-<link rel="stylesheet"
-href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Invernadero — Dashboard</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js"></script>
-
 <style>
-
-*,*::before,*::after{
-    box-sizing:border-box;
-    margin:0;
-    padding:0;
-}
-
-:root{
-
-        --bg:        #d4d4d2;
-    --surface:   #d4d4d2;
-    --surface2:  #d4d4d2;
+  /*  Reset & base  */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:        #f5f4f0;
+    --surface:   #ffffff;
+    --surface2:  #f0efe9;
     --border:    rgba(0,0,0,0.09);
     --border2:   rgba(0,0,0,0.15);
     --text:      #1a1a18;
     --text2:     #5f5e5a;
     --text3:     #9a9992;
     --green:     #3B6D11;
-    --green-bg:  #d4d4d2;
+    --green-bg:  #EAF3DE;
     --green-dark:#27500A;
     --amber:     #854F0B;
     --amber-bg:  #FAEEDA;
@@ -46,1255 +35,1110 @@ href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icon
     --radius-lg: 12px;
     --font: 'Segoe UI', system-ui, sans-serif;
     --mono: 'Consolas', 'Fira Code', monospace;
-}
-
-html,
-body{
-    height:100%;
-    font-family:var(--font);
-    background:var(--bg);
-    color:var(--text);
-    font-size:14px;
-}
-
-.shell{
-    display:flex;
-    height:100vh;
-    overflow:hidden;
-}
-
-/* 
-   SIDEBAR
- */
-
-.sidebar{
-    width:220px;
-    background:var(--surface);
-    border-right:.5px solid var(--border);
-    display:flex;
-    flex-direction:column;
-}
-
-.sidebar-logo{
-    padding:18px 16px;
-    border-bottom:.5px solid var(--border);
-}
-
-.logo-icon{
-    width:36px;
-    height:36px;
-    border-radius:8px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background:var(--green-bg);
-    margin-bottom:8px;
-}
-
-.logo-icon i{
-    color:var(--green);
-    font-size:20px;
-}
-
-.proj-name{
-    font-size:14px;
-    font-weight:600;
-}
-
-.proj-sub{
-    font-size:11px;
-    color:var(--text3);
-}
-
-.nav-section{
-    padding:10px 8px;
-}
-
-.nav-label{
-    font-size:10px;
-    text-transform:uppercase;
-    color:var(--text3);
-    padding:0 8px 6px;
-}
-
-.nav-item{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    text-decoration:none;
-    color:var(--text2);
-    padding:8px 10px;
-    border-radius:6px;
-    margin-bottom:3px;
-}
-
-.nav-item.active{
-    background:var(--green-bg);
-    color:var(--green-dark);
-}
-
-.sidebar-footer{
-    margin-top:auto;
-    padding:14px;
-    font-size:12px;
-    color:var(--text3);
-}
-
-/* 
-   MAIN
- */
-
-.main{
-    flex:1;
-    display:flex;
-    flex-direction:column;
-    overflow:hidden;
-}
-
-.topbar{
-    padding:10px 20px;
-    background:var(--surface);
-    border-bottom:.5px solid var(--border);
-
-    display:flex;
-    align-items:center;
-    gap:12px;
-}
-
-.topbar h1{
-    flex:1;
-    font-size:15px;
-    font-weight:600;
-}
-
-.global-badge{
-    padding:5px 12px;
-    border-radius:20px;
-    background:var(--green-bg);
-    color:var(--green-dark);
-    font-size:12px;
-}
-
-.topbar-time{
-    font-size:12px;
-    color:var(--text3);
-}
-
-.content{
-    flex:1;
-    overflow-y:auto;
-    padding:16px 20px;
-
-    display:flex;
-    flex-direction:column;
-    gap:16px;
-}
-
-/* 
-   TARJETAS
- */
-
-.metric-row{
-    display:grid;
-    grid-template-columns:repeat(6,1fr);
-    gap:10px;
-}
-
-.metric-card{
-    background:var(--surface2);
-    border-radius:var(--radius-md);
-    padding:10px;
-}
-
-.mc-label{
-    font-size:11px;
-    color:var(--text2);
-}
-
-.mc-value{
-    font-size:22px;
-    font-weight:600;
-}
-
-.panel{
-    background:var(--surface);
-    border:.5px solid var(--border);
-    border-radius:var(--radius-lg);
-    overflow:hidden;
-}
-
-.panel-header{
-    padding:10px 16px;
-    border-bottom:.5px solid var(--border);
-    font-weight:600;
-    font-size:13px;
-}
-
-.panel-body{
-    padding:14px;
-}
-
-.two-col{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:14px;
-}
-
-/* 
-   CULTIVOS
- */
-
-.area-card{
-    border:.5px solid var(--border);
-    border-radius:8px;
-    overflow:hidden;
-}
-
-.area-head{
-    padding:8px 12px;
-    background:var(--green-bg);
-    font-weight:600;
-}
-
-.area-body{
-    padding:10px;
-}
-
-.bar-track{
-    height:6px;
-    background:#bdbdbd;
-    border-radius:5px;
-    overflow:hidden;
-}
-
-.bar-fill{
-    height:100%;
-    width:0%;
-    background:var(--green);
-}
-
-/* 
-   LCD
- */
-
-.lcd{
-    background:#1a2e0a;
-    color:#7ec84a;
-    font-family:monospace;
-    border-radius:8px;
-    padding:12px;
-}
-
-/* 
-   CHARTS
- */
-
-.chart-wrap{
-    height:180px;
-}
-
-/* 
-   CONTROL
- */
-
-.control-grid{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:12px;
-}
-
-.control-card{
-    border:.5px solid var(--border);
-    border-radius:10px;
-    padding:15px;
-    background:#d4d4d2;
-}
-
-.control-title{
-    font-weight:600;
-    margin-bottom:10px;
-}
-
-.control-status{
-    margin-top:10px;
-    font-size:12px;
-    color:var(--text2);
-}
-
-.btn{
-    border:none;
-    border-radius:8px;
-    padding:10px 14px;
-    cursor:pointer;
-    font-weight:600;
-}
-
-.btn-on{
-    background:#2ea043;
-    color:white;
-}
-
-.btn-off{
-    background:#d1242f;
-    color:white;
-}
-
-.btn-row{
-    display:flex;
-    gap:8px;
-}
-
-@media(max-width:1000px){
-
-    .metric-row{
-        grid-template-columns:repeat(2,1fr);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:       #1c1c1a;
+      --surface:  #252522;
+      --surface2: #2e2e2b;
+      --border:   rgba(255,255,255,0.08);
+      --border2:  rgba(255,255,255,0.15);
+      --text:     #f0efe9;
+      --text2:    #b4b2a9;
+      --text3:    #888780;
+      --green-bg: #17340a;
+      --amber-bg: #412402;
+      --red-bg:   #501313;
+      --teal-bg:  #04342c;
+      --blue-bg:  #042c53;
     }
+  }
+  html, body { height: 100%; font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; }
 
-    .two-col{
-        grid-template-columns:1fr;
-    }
+  /*  Layout shell  */
+  .shell { display: flex; height: 100vh; overflow: hidden; }
 
-    .control-grid{
-        grid-template-columns:1fr;
-    }
-}
+  /*  Sidebar  */
+  .sidebar {
+    width: 210px; min-width: 210px;
+    background: var(--surface);
+    border-right: 0.5px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  .sidebar-logo {
+    padding: 18px 16px 14px;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: var(--green-bg); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 8px;
+  }
+  .logo-icon i { font-size: 20px; color: var(--green); }
+  .sidebar-logo .proj-name { font-size: 14px; font-weight: 500; }
+  .sidebar-logo .proj-sub  { font-size: 11px; color: var(--text3); }
 
+  .nav-section { padding: 10px 8px 4px; }
+  .nav-label {
+    font-size: 10px; color: var(--text3);
+    padding: 0 8px 6px; letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: var(--radius-sm);
+    font-size: 13px; color: var(--text2);
+    cursor: pointer; transition: background 0.12s; text-decoration: none;
+  }
+  .nav-item:hover { background: var(--surface2); }
+  .nav-item.active { background: var(--green-bg); color: var(--green-dark); font-weight: 500; }
+  .nav-item i { font-size: 16px; }
+  .nav-badge {
+    margin-left: auto; font-size: 10px; padding: 1px 7px;
+    border-radius: 10px; font-weight: 500;
+  }
+  .badge-green { background: var(--green-bg); color: var(--green-dark); }
+  .badge-red   { background: var(--red-bg);   color: var(--red); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 12px 16px;
+    border-top: 0.5px solid var(--border);
+    font-size: 12px; color: var(--text3);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .dot-live { width: 7px; height: 7px; border-radius: 50%; background: #639922; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /*  Main  */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 10px 20px;
+    display: flex; align-items: center; gap: 12px;
+    flex-shrink: 0;
+  }
+  .topbar h1 { font-size: 15px; font-weight: 500; flex: 1; }
+  .mode-toggle {
+    display: flex; border: 0.5px solid var(--border2); border-radius: 20px; overflow: hidden;
+  }
+  .mode-toggle button {
+    padding: 5px 14px; border: none; cursor: pointer; background: transparent;
+    font-size: 12px; color: var(--text2); font-family: var(--font);
+    transition: background 0.15s;
+  }
+  .mode-toggle button.active { background: var(--green-bg); color: var(--green-dark); font-weight: 500; }
+  .global-badge {
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  }
+  .state-normal    { background: var(--green-bg); color: var(--green-dark); }
+  .state-warn      { background: var(--amber-bg); color: var(--amber); }
+  .state-emergency { background: var(--red-bg);   color: var(--red); }
+  .topbar-time { font-size: 12px; color: var(--text3); }
+
+  /*  Scrollable content  */
+  .content { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+
+  /*  Section labels  */
+  .sec-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+
+  /*  Metric cards   */
+  .metric-row { display: grid; grid-template-columns: repeat(6,1fr); gap: 10px; }
+  .metric-card { background: var(--surface2); border-radius: var(--radius-md); padding: 10px 12px; }
+  .mc-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+  .mc-label i { font-size: 13px; }
+  .mc-value { font-size: 24px; font-weight: 500; line-height: 1; }
+  .mc-unit  { font-size: 12px; color: var(--text3); margin-left: 1px; }
+  .mc-sub   { font-size: 11px; margin-top: 3px; }
+  .ok   { color: var(--green); }
+  .warn { color: var(--amber); }
+  .danger { color: var(--red); }
+
+  /*  Panels  */
+  .panel {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 10px 16px;
+    border-bottom: 0.5px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-header h2 { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; flex: 1; }
+  .panel-header h2 i { font-size: 15px; color: var(--text2); }
+  .panel-header .ph-right { font-size: 11px; color: var(--text3); }
+  .panel-body { padding: 14px 16px; }
+
+  /*  Two-col layout  */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+  /*  Area cards  */
+  .areas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .area-card { border: 0.5px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .area-head { padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 500; }
+  .area-1 { background: var(--green-bg); color: var(--green-dark); }
+  .area-2 { background: var(--teal-bg);  color: var(--teal); }
+  .area-body { padding: 10px 12px; background: var(--surface2); }
+
+  .bar-label { font-size: 11px; color: var(--text2); margin-bottom: 3px; }
+  .bar-track { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-bottom: 2px; }
+  .bar-fill  { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+  .fill-green { background: #639922; }
+  .fill-amber { background: #EF9F27; }
+  .fill-red   { background: #E24B4A; }
+  .bar-val { font-size: 11px; color: var(--text3); text-align: right; }
+
+  .area-actions { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; }
+  .chip { font-size: 11px; color: var(--text3); }
+  .btn-riego {
+    font-size: 11px; padding: 4px 12px; border-radius: 20px; cursor: pointer;
+    border: 0.5px solid; background: transparent; font-family: var(--font);
+    display: flex; align-items: center; gap: 4px; transition: opacity 0.15s;
+  }
+  .btn-riego:hover { opacity: 0.75; }
+  .btn-on  { border-color: var(--red);   color: var(--red); }
+  .btn-off { border-color: var(--green); color: var(--green); }
+
+  /*  Actuadores grid  */
+  .act-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+  .act-card {
+    border: 0.5px solid var(--border); border-radius: var(--radius-md);
+    padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer; transition: background 0.12s;
+  }
+  .act-card:hover { background: var(--surface2); }
+  .act-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .act-icon i { font-size: 16px; }
+  .ic-green { background: var(--green-bg); color: var(--green); }
+  .ic-amber { background: var(--amber-bg); color: var(--amber); }
+  .ic-red   { background: var(--red-bg);   color: var(--red); }
+  .ic-gray  { background: var(--surface2); color: var(--text3); }
+  .act-name  { font-size: 11px; color: var(--text2); text-align: center; }
+  .act-state { font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 10px; }
+  .as-on  { background: var(--green-bg); color: var(--green-dark); }
+  .as-off { background: var(--surface2); color: var(--text3); }
+  .as-emg { background: var(--red-bg);   color: var(--red); }
+
+  /*  Charts  */
+  .chart-wrap { position: relative; height: 180px; }
+
+  /*  Events list  */
+  .events-list { display: flex; flex-direction: column; gap: 6px; }
+  .ev-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 7px 10px; border-radius: var(--radius-sm); background: var(--surface2);
+  }
+  .ev-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .ev-text { flex: 1; font-size: 12px; }
+  .ev-time { font-size: 11px; color: var(--text3); white-space: nowrap; }
+
+  /*  ARM64 results  */
+  .arm-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
+  .arm-card { background: var(--surface2); border-radius: var(--radius-md); padding: 10px; }
+  .arm-mod  { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-bottom: 4px; }
+  .arm-val  { font-size: 20px; font-weight: 500; }
+  .arm-desc { font-size: 10px; color: var(--text2); margin-top: 2px; }
+  .arm-full { grid-column: 1/-1; }
+  .arm-trend-row { display: flex; align-items: center; gap: 12px; }
+  .arm-trend-val { font-size: 20px; font-weight: 500; }
+  .arm-trend-detail { font-size: 11px; color: var(--text2); line-height: 1.5; }
+
+  /*  MQTT topics  */
+  .topics-list { display: flex; flex-direction: column; gap: 4px; }
+  .topic-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 5px 8px; border-radius: var(--radius-sm); background: var(--surface2);
+  }
+  .topic-name { font-size: 11px; font-family: var(--mono); color: var(--text2); }
+  .topic-right { display: flex; align-items: center; gap: 6px; }
+  .topic-val  { font-size: 11px; font-weight: 500; }
+  .topic-live { width: 6px; height: 6px; border-radius: 50%; background: #639922; }
+
+  /*  Estado LCD preview  */
+  .lcd {
+    background: #1a2e0a; border-radius: var(--radius-sm);
+    padding: 12px 16px; font-family: var(--mono);
+    font-size: 13px; color: #7ec84a; line-height: 1.8;
+    border: 2px solid #2a4010;
+  }
+  .lcd-line { letter-spacing: 0.04em; }
+
+  /*  Historial table  */
+  .hist-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .hist-table th { text-align: left; padding: 6px 8px; color: var(--text3); font-weight: 500; border-bottom: 0.5px solid var(--border); }
+  .hist-table td { padding: 6px 8px; border-bottom: 0.5px solid var(--border); color: var(--text2); }
+  .hist-table tr:last-child td { border-bottom: none; }
+
+  /*  Remote control buttons  */
+  .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ctrl-btn {
+    padding: 8px 12px; border-radius: var(--radius-md); border: 0.5px solid var(--border2);
+    background: transparent; cursor: pointer; font-family: var(--font); font-size: 12px;
+    color: var(--text); display: flex; align-items: center; gap: 6px;
+    transition: background 0.12s;
+  }
+  .ctrl-btn:hover { background: var(--surface2); }
+  .ctrl-btn i { font-size: 15px; color: var(--text2); }
+  .ctrl-btn.danger { border-color: var(--red); color: var(--red); }
+  .ctrl-btn.danger i { color: var(--red); }
+  .ctrl-btn.success { border-color: var(--green); color: var(--green); }
+  .ctrl-btn.success i { color: var(--green); }
+
+  /*  Connection status toast  */
+  #toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--surface); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md); padding: 10px 16px;
+    font-size: 12px; color: var(--text2);
+    display: none; align-items: center; gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 100;
+  }
+
+  /*  Responsive  */
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .metric-row { grid-template-columns: repeat(3,1fr); }
+    .two-col, .three-col { grid-template-columns: 1fr; }
+    .act-grid { grid-template-columns: repeat(4,1fr); }
+  }
 </style>
 </head>
-
 <body>
 
 <div class="shell">
 
-<nav class="sidebar">
+  <!--  SIDEBAR  -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="ti ti-plant-2"></i></div>
+      <div class="proj-name">Invernadero IoT</div>
+      <div class="proj-sub">ACYE1 · USAC 2026</div>
+    </div>
 
-<div class="sidebar-logo">
+    <div class="nav-section">
+      <div class="nav-label">monitoreo</div>
+      <a class="nav-item active" href="#dashboard"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+      <a class="nav-item" href="#historico"><i class="ti ti-chart-line"></i> Histórico</a>
+      <a class="nav-item" href="#mqtt"><i class="ti ti-antenna"></i> MQTT <span class="nav-badge badge-green" id="mqtt-badge">●</span></a>
+    </div>
 
-<div class="logo-icon">
-<i class="ti ti-plant-2"></i>
-</div>
+    <div class="nav-section">
+      <div class="nav-label">control</div>
+      <a class="nav-item" href="#riego"><i class="ti ti-droplet"></i> Riego <span class="nav-badge badge-green" id="riego-badge">OFF</span></a>
+      <a class="nav-item" href="#actuadores"><i class="ti ti-adjustments-horizontal"></i> Actuadores</a>
+      <a class="nav-item" href="#arm64"><i class="ti ti-cpu"></i> ARM64 <span class="nav-badge badge-green">5</span></a>
+    </div>
 
-<div class="proj-name">
-Invernadero ARQUI 1
-</div>
+    <div class="nav-section">
+      <div class="nav-label">datos</div>
+      <a class="nav-item" href="#eventos"><i class="ti ti-history"></i> Eventos <span class="nav-badge badge-amber" id="events-badge">0</span></a>
+      <a class="nav-item" href="#comandos"><i class="ti ti-terminal-2"></i> Comandos</a>
+      <a class="nav-item" href="#alertas"><i class="ti ti-bell"></i> Alertas <span class="nav-badge badge-red" id="alerts-badge">0</span></a>
+    </div>
 
-<div class="proj-sub">
-Monitoreo y Control
-</div>
+    <div class="sidebar-footer">
+      <span class="dot-live" id="pi-dot"></span>
+      <span id="pi-status">Esperando conexión...</span>
+    </div>
+  </nav>
 
-</div>
+  <!--  MAIN  -->
+  <div class="main">
 
-<div class="nav-section">
+    <!-- Topbar -->
+    <div class="topbar">
+      <h1>Panel de monitoreo</h1>
+      <div class="mode-toggle">
+        <button class="active" id="btn-auto" onclick="setMode('auto')">Automático</button>
+        <button id="btn-manual" onclick="setMode('manual')">Manual</button>
+      </div>
+      <span class="global-badge state-normal" id="global-state">● NORMAL</span>
+      <span class="topbar-time" id="clock">--:--:--</span>
+    </div>
 
-<div class="nav-label">
-Sistema
-</div>
+    <!-- Content -->
+    <div class="content">
 
-<a class="nav-item active" href="#dashboard">
-Dashboard
-</a>
-
-<a class="nav-item" href="#control">
-Control
-</a>
-
-<a class="nav-item" href="#historico">
-Histórico
-</a>
-
-</div>
-
-<div class="sidebar-footer">
-Estado:
-<span id="pi-status">Sin conexión</span>
-</div>
-
-</nav>
-
-<div class="main">
-
-<div class="topbar">
-
-<h1>
-Panel de Monitoreo y Control
-</h1>
-
-<span class="global-badge" id="global-state">
-NORMAL
-</span>
-
-<span class="topbar-time" id="clock">
---:--:--
-</span>
-
-</div>
-
-<div class="content">
-
-<!-- SENSORES -->
-
-<section id="dashboard">
-
-<div class="metric-row">
-
-<div class="metric-card">
-<div class="mc-label">Temperatura</div>
-<div class="mc-value" id="val-temp">--</div>
-</div>
-
-<div class="metric-card">
-<div class="mc-label">Humedad aire</div>
-<div class="mc-value" id="val-hum">--</div>
-</div>
-
-<div class="metric-card">
-<div class="mc-label">Luz</div>
-<div class="mc-value" id="val-luz">--</div>
-</div>
-
-<div class="metric-card">
-<div class="mc-label">Gas</div>
-<div class="mc-value" id="val-gas">--</div>
-</div>
-
-<div class="metric-card">
-<div class="mc-label">Lecturas</div>
-<div class="mc-value" id="val-lecturas">0</div>
-</div>
-
-<div class="metric-card">
-<div class="mc-label">Última lectura</div>
-<div class="mc-value" id="val-ultima">--</div>
-</div>
-
-</div>
-
-</section>
-
-<!-- ÁREAS DE CULTIVO -->
-
-<div class="two-col">
-
-    <div class="panel">
-        <div class="panel-header">
-            Área de cultivo 1
+      <!--  Sensores ambientales  -->
+      <section id="dashboard">
+        <div class="sec-label">sensores ambientales</div>
+        <div class="metric-row">
+          <div class="metric-card">
+            <div class="mc-label"><i class="ti ti-temperature"></i> Temperatura</div>
+            <div><span class="mc-value" id="val-temp">--</span><span class="mc-unit">°C</span></div>
+            <div class="mc-sub ok" id="st-temp">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-label"><i class="ti ti-droplets"></i> Humedad aire</div>
+            <div><span class="mc-value" id="val-hum">--</span><span class="mc-unit">%</span></div>
+            <div class="mc-sub ok" id="st-hum">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-label"><i class="ti ti-sun"></i> Nivel de luz</div>
+            <div><span class="mc-value" id="val-luz">--</span><span class="mc-unit">lux</span></div>
+            <div class="mc-sub ok" id="st-luz">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-label"><i class="ti ti-cloud"></i> Gas / humo</div>
+            <div><span class="mc-value" id="val-gas">--</span><span class="mc-unit">ppm</span></div>
+            <div class="mc-sub ok" id="st-gas">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-label"><i class="ti ti-timeline"></i> Lecturas hoy</div>
+            <div><span class="mc-value" id="val-lecturas">0</span></div>
+            <div class="mc-sub ok">Total acumulado</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-label"><i class="ti ti-clock"></i> Última lectura</div>
+            <div><span class="mc-value" style="font-size:16px" id="val-ultima">--</span></div>
+            <div class="mc-sub ok" id="st-conn">Sin datos</div>
+          </div>
         </div>
+      </section>
 
-        <div class="panel-body area-card">
+      <!--  Áreas + Actuadores  -->
+      <div class="two-col">
 
-            <div class="area-head">
-                Humedad suelo
-            </div>
-
-            <div class="area-body">
-
-                <div class="bar-track">
-                    <div class="bar-fill" id="bar-s1"></div>
+        <!-- Áreas de cultivo -->
+        <div class="panel" id="riego">
+          <div class="panel-header">
+            <h2><i class="ti ti-layout-columns"></i> Áreas de cultivo</h2>
+            <span class="ph-right">Humedad de suelo independiente</span>
+          </div>
+          <div class="panel-body">
+            <div class="areas-grid">
+              <!-- Área 1 -->
+              <div class="area-card">
+                <div class="area-head area-1">
+                  <span>Área 1</span>
+                  <i class="ti ti-plant" style="font-size:13px"></i>
                 </div>
-
-                <p id="val-suelo1">
-                    --
-                </p>
-
-            </div>
-
-        </div>
-    </div>
-
-    <div class="panel">
-
-        <div class="panel-header">
-            Área de cultivo 2
-        </div>
-
-        <div class="panel-body area-card">
-
-            <div class="area-head">
-                Humedad suelo
-            </div>
-
-            <div class="area-body">
-
-                <div class="bar-track">
-                    <div class="bar-fill" id="bar-s2"></div>
+                <div class="area-body">
+                  <div class="bar-label">Humedad suelo</div>
+                  <div class="bar-track"><div class="bar-fill fill-amber" id="bar-s1" style="width:0%"></div></div>
+                  <div class="bar-val"><span id="val-suelo1">--</span>% — <span id="st-suelo1">—</span></div>
+                  <div class="area-actions">
+                    <span class="chip" id="riego1-chip">Sin riego</span>
+                    <button class="btn-riego btn-off" id="btn-riego1" onclick="toggleRiego(1)">
+                      <i class="ti ti-droplet"></i> Regar
+                    </button>
+                  </div>
                 </div>
-
-                <p id="val-suelo2">
-                    --
-                </p>
-
+              </div>
+              <!-- Área 2 -->
+              <div class="area-card">
+                <div class="area-head area-2">
+                  <span>Área 2</span>
+                  <i class="ti ti-plant" style="font-size:13px"></i>
+                </div>
+                <div class="area-body">
+                  <div class="bar-label">Humedad suelo</div>
+                  <div class="bar-track"><div class="bar-fill fill-green" id="bar-s2" style="width:0%"></div></div>
+                  <div class="bar-val"><span id="val-suelo2">--</span>% — <span id="st-suelo2">—</span></div>
+                  <div class="area-actions">
+                    <span class="chip" id="riego2-chip">Sin riego</span>
+                    <button class="btn-riego btn-off" id="btn-riego2" onclick="toggleRiego(2)">
+                      <i class="ti ti-droplet"></i> Regar
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-
-        </div>
-    </div>
-
-</div>
-
-<!-- LCD -->
-
-<div class="panel">
-
-    <div class="panel-header">
-        Vista LCD
-    </div>
-
-    <div class="panel-body">
-
-        <div class="lcd">
-
-            <div id="lcd-l1">
-                INVERNADERO
-            </div>
-
-            <div id="lcd-l2">
-                Esperando datos...
-            </div>
-
+          </div>
         </div>
 
-    </div>
-
-</div>
-
-<!-- 
-     CONTROL
- -->
-
-<section id="control">
-
-<div class="panel">
-
-<div class="panel-header">
-Centro de Control
-</div>
-
-<div class="panel-body">
-
-<div class="control-grid">
-
-<!-- BOMBA -->
-
-<div class="control-card">
-
-<div class="control-title">
-Bomba de Agua
-</div>
-
-<div class="btn-row">
-
-<button
-class="btn btn-on"
-onclick="enviarComando('bomba','on')">
-ENCENDER
-</button>
-
-<button
-class="btn btn-off"
-onclick="enviarComando('bomba','off')">
-APAGAR
-</button>
-
-</div>
-
-<div class="control-status">
-Estado:
-<span id="estado-bomba">
-Desconocido
-</span>
-</div>
-
-</div>
-
-<!-- VENTILADOR -->
-
-<div class="control-card">
-
-<div class="control-title">
-Ventilador
-</div>
-
-<div class="btn-row">
-
-<button
-class="btn btn-on"
-onclick="enviarComando('ventilador','on')">
-ENCENDER
-</button>
-
-<button
-class="btn btn-off"
-onclick="enviarComando('ventilador','off')">
-APAGAR
-</button>
-
-</div>
-
-<div class="control-status">
-Estado:
-<span id="estado-ventilador">
-Desconocido
-</span>
-</div>
-
-</div>
-
-<!-- LUCES -->
-
-<div class="control-card">
-
-<div class="control-title">
-Luces
-</div>
-
-<div class="btn-row">
-
-<button
-class="btn btn-on"
-onclick="enviarComando('luces','on')">
-ENCENDER
-</button>
-
-<button
-class="btn btn-off"
-onclick="enviarComando('luces','off')">
-APAGAR
-</button>
-
-</div>
-
-<div class="control-status">
-Estado:
-<span id="estado-luces">
-Desconocido
-</span>
-</div>
-
-</div>
-
-<!-- MODO -->
-
-<div class="control-card">
-
-<div class="control-title">
-Modo
-</div>
-
-<div class="btn-row">
-
-<button
-class="btn btn-on"
-onclick="enviarComando('modo','automatico')">
-AUTO
-</button>
-
-<button
-class="btn btn-off"
-onclick="enviarComando('modo','manual')">
-MANUAL
-</button>
-
-</div>
-
-<div class="control-status">
-Modo:
-<span id="estado-modo">
-Automático
-</span>
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</section>
-
-<!-- 
-     HISTÓRICO
- -->
-
-<div class="two-col" id="historico">
-
-<div class="panel">
-
-<div class="panel-header">
-Temperatura / Humedad
-</div>
-
-<div class="panel-body">
-
-<div class="chart-wrap">
-<canvas id="chart-temp-hum"></canvas>
-</div>
-
-</div>
-
-</div>
-
-<div class="panel">
-
-<div class="panel-header">
-Humedad del Suelo
-</div>
-
-<div class="panel-body">
-
-<div class="chart-wrap">
-<canvas id="chart-suelo"></canvas>
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-<div class="two-col">
-
-<div class="panel">
-
-<div class="panel-header">
-Luz
-</div>
-
-<div class="panel-body">
-
-<div class="chart-wrap">
-<canvas id="chart-luz"></canvas>
-</div>
-
-</div>
-
-</div>
-
-<div class="panel">
-
-<div class="panel-header">
-Gas
-</div>
-
-<div class="panel-body">
-
-<div class="chart-wrap">
-<canvas id="chart-gas"></canvas>
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-</div>
-</div>
+        <!-- Actuadores -->
+        <div class="panel" id="actuadores">
+          <div class="panel-header">
+            <h2><i class="ti ti-adjustments-horizontal"></i> Control de actuadores</h2>
+          </div>
+          <div class="panel-body">
+            <div class="act-grid">
+              <div class="act-card" onclick="toggleActuador('bomba')">
+                <div class="act-icon ic-gray" id="ic-bomba"><i class="ti ti-droplet"></i></div>
+                <div class="act-name">Bomba agua</div>
+                <div class="act-state as-off" id="as-bomba">Apagada</div>
+              </div>
+              <div class="act-card" onclick="toggleActuador('ventilador')">
+                <div class="act-icon ic-gray" id="ic-vent"><i class="ti ti-wind"></i></div>
+                <div class="act-name">Ventilador</div>
+                <div class="act-state as-off" id="as-vent">Apagado</div>
+              </div>
+              <div class="act-card" onclick="toggleActuador('luces')">
+                <div class="act-icon ic-gray" id="ic-luces"><i class="ti ti-bulb"></i></div>
+                <div class="act-name">Luces</div>
+                <div class="act-state as-off" id="as-luces">Apagadas</div>
+              </div>
+              <div class="act-card" onclick="silenciarAlarma()">
+                <div class="act-icon ic-gray" id="ic-alarm"><i class="ti ti-bell"></i></div>
+                <div class="act-name">Alarma</div>
+                <div class="act-state as-off" id="as-alarm">Silenciada</div>
+              </div>
+              <div class="act-card">
+                <div class="act-icon ic-green" id="ic-led-g"><i class="ti ti-circle-check"></i></div>
+                <div class="act-name">LED verde</div>
+                <div class="act-state as-on" id="as-led-g">NORMAL</div>
+              </div>
+              <div class="act-card">
+                <div class="act-icon ic-gray" id="ic-led-y"><i class="ti ti-circle"></i></div>
+                <div class="act-name">LED amarillo</div>
+                <div class="act-state as-off" id="as-led-y">Apagado</div>
+              </div>
+              <div class="act-card">
+                <div class="act-icon ic-gray" id="ic-led-r"><i class="ti ti-alert-circle"></i></div>
+                <div class="act-name">LED rojo</div>
+                <div class="act-state as-off" id="as-led-r">Apagado</div>
+              </div>
+              <div class="act-card">
+                <div class="act-icon ic-green"><i class="ti ti-plug"></i></div>
+                <div class="act-name">Sistema</div>
+                <div class="act-state as-on" id="as-sistema">Online</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!--  Control remoto + LCD preview  -->
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header">
+            <h2><i class="ti ti-remote-control"></i> Control remoto</h2>
+          </div>
+          <div class="panel-body">
+            <div class="ctrl-grid">
+              <button class="ctrl-btn success" onclick="publishCmd('riego','ON')"><i class="ti ti-droplet"></i> Activar riego</button>
+              <button class="ctrl-btn danger"  onclick="publishCmd('riego','OFF')"><i class="ti ti-droplet-off"></i> Detener riego</button>
+              <button class="ctrl-btn success" onclick="publishCmd('ventilador','ON')"><i class="ti ti-wind"></i> Ventilador ON</button>
+              <button class="ctrl-btn danger"  onclick="publishCmd('ventilador','OFF')"><i class="ti ti-wind"></i> Ventilador OFF</button>
+              <button class="ctrl-btn success" onclick="publishCmd('luces','ON')"><i class="ti ti-bulb"></i> Luces ON</button>
+              <button class="ctrl-btn danger"  onclick="publishCmd('luces','OFF')"><i class="ti ti-bulb-off"></i> Luces OFF</button>
+              <button class="ctrl-btn"         onclick="publishCmd('alarma','SILENCIAR')"><i class="ti ti-bell-off"></i> Silenciar alarma</button>
+              <button class="ctrl-btn danger"  onclick="publishCmd('global','RESET')"><i class="ti ti-refresh"></i> Reset estado</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2><i class="ti ti-device-tablet"></i> Vista LCD</h2>
+            <span class="ph-right">16×2 — rotación cada 3s</span>
+          </div>
+          <div class="panel-body">
+            <div class="lcd">
+              <div class="lcd-line" id="lcd-l1">INVERNADERO IoT  </div>
+              <div class="lcd-line" id="lcd-l2">Iniciando...     </div>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:var(--text3)">
+              Simulación de pantalla — los datos se actualizan con los sensores reales
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!--  Gráficas históricas  -->
+      <section id="historico">
+        <div class="sec-label">historial de sensores (últimas 30 lecturas)</div>
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-header"><h2><i class="ti ti-temperature"></i> Temperatura y humedad</h2></div>
+            <div class="panel-body"><div class="chart-wrap"><canvas id="chart-temp-hum"></canvas></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header"><h2><i class="ti ti-plant-2"></i> Humedad de suelo</h2></div>
+            <div class="panel-body"><div class="chart-wrap"><canvas id="chart-suelo"></canvas></div></div>
+          </div>
+        </div>
+        <div class="two-col" style="margin-top:14px">
+          <div class="panel">
+            <div class="panel-header"><h2><i class="ti ti-sun"></i> Nivel de luz</h2></div>
+            <div class="panel-body"><div class="chart-wrap"><canvas id="chart-luz"></canvas></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header"><h2><i class="ti ti-cloud"></i> Gas / humo</h2></div>
+            <div class="panel-body"><div class="chart-wrap"><canvas id="chart-gas"></canvas></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!--  ARM64 + Eventos  -->
+      <div class="two-col" id="arm64">
+        <div class="panel">
+          <div class="panel-header">
+            <h2><i class="ti ti-cpu"></i> Análisis ARM64</h2>
+            <span class="ph-right" id="arm-var">Variable: TEMP · 30 datos</span>
+          </div>
+          <div class="panel-body">
+            <div class="arm-grid">
+              <div class="arm-card">
+                <div class="arm-mod">modulo_1_media.s</div>
+                <div class="arm-val" id="arm-media">--</div>
+                <div class="arm-desc">Media aritmética ponderada</div>
+              </div>
+              <div class="arm-card">
+                <div class="arm-mod">modulo_2_varianza.s</div>
+                <div class="arm-val" id="arm-var-val">--</div>
+                <div class="arm-desc">Varianza / desv. estándar</div>
+              </div>
+              <div class="arm-card">
+                <div class="arm-mod">modulo_3_anomalias.s</div>
+                <div class="arm-val" id="arm-anom" style="color:var(--text)">--</div>
+                <div class="arm-desc">Anomalías detectadas (|z|≥2)</div>
+              </div>
+              <div class="arm-card">
+                <div class="arm-mod">modulo_4_prediccion.s</div>
+                <div class="arm-val" id="arm-pred">--</div>
+                <div class="arm-desc">Siguiente valor predicho</div>
+              </div>
+              <div class="arm-card arm-full">
+                <div class="arm-mod">modulo_5_tendencia.s</div>
+                <div class="arm-trend-row">
+                  <div class="arm-trend-val" id="arm-trend">--</div>
+                  <div class="arm-trend-detail" id="arm-trend-detail">Esperando datos del invernadero...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" id="eventos">
+          <div class="panel-header">
+            <h2><i class="ti ti-history"></i> Últimos eventos</h2>
+            <span class="ph-right">Tiempo real</span>
+          </div>
+          <div class="panel-body">
+            <div class="events-list" id="events-list">
+              <div class="ev-item">
+                <div class="ev-dot" style="background:#639922"></div>
+                <div class="ev-text">Sistema iniciado — esperando datos de sensores</div>
+                <div class="ev-time" id="ev-init-time">--:--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!--  MQTT topics + Historial comandos  -->
+      <div class="two-col" id="mqtt">
+        <div class="panel">
+          <div class="panel-header">
+            <h2><i class="ti ti-antenna"></i> MQTT topics en vivo</h2>
+            <span class="ph-right" id="mqtt-status-txt">Desconectado</span>
+          </div>
+          <div class="panel-body">
+            <div class="topics-list" id="topics-list">
+              <div class="topic-row"><span class="topic-name">invernadero/sensores/temperatura</span><div class="topic-right"><span class="topic-val" id="t-temp">--</span><span class="topic-live" style="background:#b4b2a9"></span></div></div>
+              <div class="topic-row"><span class="topic-name">invernadero/sensores/humedad_ambiente</span><div class="topic-right"><span class="topic-val" id="t-hum">--</span><span class="topic-live" style="background:#b4b2a9"></span></div></div>
+              <div class="topic-row"><span class="topic-name">invernadero/sensores/humedad_suelo_area1</span><div class="topic-right"><span class="topic-val" id="t-s1">--</span><span class="topic-live" style="background:#b4b2a9"></span></div></div>
+              <div class="topic-row"><span class="topic-name">invernadero/sensores/humedad_suelo_area2</span><div class="topic-right"><span class="topic-val" id="t-s2">--</span><span class="topic-live" style="background:#b4b2a9"></span></div></div>
+              <div class="topic-row"><span class="topic-name">invernadero/sensores/luz</span><div class="topic-right"><span class="topic-val" id="t-luz">--</span><span class="topic-live" style="background:#b4b2a9"></span></div></div>
+              <div class="topic-row"><span class="topic-name">invernadero/sensores/gas</span><div class="topic-right"><span class="topic-val" id="t-gas">--</span><span class="topic-live" style="background:#b4b2a9"></span></div></div>
+              <div class="topic-row"><span class="topic-name">invernadero/actuadores/riego</span><div class="topic-right"><span class="topic-val" id="t-riego">--</span><span class="topic-live" style="background:#b4b2a9"></span></div></div>
+              <div class="topic-row"><span class="topic-name">invernadero/actuadores/ventilador</span><div class="topic-right"><span class="topic-val" id="t-vent">--</span><span class="topic-live" style="background:#b4b2a9"></span></div></div>
+              <div class="topic-row"><span class="topic-name">invernadero/estado/global</span><div class="topic-right"><span class="topic-val" id="t-global">--</span><span class="topic-live" style="background:#b4b2a9"></span></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" id="comandos">
+          <div class="panel-header">
+            <h2><i class="ti ti-terminal-2"></i> Historial de comandos</h2>
+          </div>
+          <div class="panel-body" style="overflow-x:auto">
+            <table class="hist-table">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Actuador</th>
+                  <th>Comando</th>
+                  <th>Origen</th>
+                </tr>
+              </thead>
+              <tbody id="cmd-tbody">
+                <tr><td colspan="4" style="color:var(--text3);text-align:center;padding:12px">Sin comandos enviados aún</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<div id="toast"><i class="ti ti-check" style="color:#639922"></i> <span id="toast-msg"></span></div>
 
 <script>
-
 /* 
-   CONFIG
- */
-
+   CONFIGURACIÓN 
+*/
 const CFG = {
-
- mqttBroker:'wss://broker.emqx.io:8084/mqtt',
-
- topicBase:'invernadero',
-
- clientId:'mon_'+Math.random()
- .toString(36)
- .slice(2,8),
-
- TEMP_WARN:30,
- HUM_LOW:40,
- HUM_HIGH:80,
-
- LUZ_LOW:250,
-
- GAS_WARN:200,
- GAS_EMRG:400,
-
- SUELO_SECO:35
-
+  mqttBroker:  'wss://broker.emqx.io:8084/mqtt',  // broker WebSocket
+  mqttUser:    '',
+  mqttPass:    '',
+  clientId:    'dashboard_' + Math.random().toString(36).slice(2,8),
+  topicBase:   'invernadero',
+  // Umbrales
+  TEMP_WARN:   30,
+  HUM_LOW:     40,
+  HUM_HIGH:    80,
+  LUZ_LOW:     250,
+  GAS_WARN:    200,
+  GAS_EMRG:    400,
+  SUELO_SECO:  35,
+  SUELO_SAT:   80,
 };
 
-/* 
-   ESTADO
- */
-
+/*  Estado global del invernadero  */
 const STATE = {
-
- temp:null,
- hum:null,
- luz:null,
- gas:null,
-
- s1:null,
- s2:null,
-
- lecturas:0,
-
- mqtt:null,
-
- lcdIndex:0
-
+  temp: null, hum: null, luz: null, gas: null,
+  suelo1: null, suelo2: null,
+  riego1: false, riego2: false,
+  ventilador: false, luces: false, alarma: false, bomba: false,
+  modo: 'auto',
+  global: 'NORMAL',
+  lecturas: 0,
+  mqtt: null,
+  history: { temp:[], hum:[], s1:[], s2:[], luz:[], gas:[], labels:[] },
+  cmdLog: [],
+  events: [],
 };
 
+/*  Reloj  */
 setInterval(() => {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('es-GT');
+}, 1000);
+document.getElementById('ev-init-time').textContent = new Date().toLocaleTimeString('es-GT',{hour:'2-digit',minute:'2-digit'});
 
- document.getElementById("clock").textContent =
- new Date().toLocaleTimeString("es-GT");
-
-},1000);
-
-/* 
-   CHARTS
- */
-
+/*  Charts  */
 const chartDefaults = {
-
- responsive:true,
- maintainAspectRatio:false
-
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 10, padding: 10 } } },
+  scales: {
+    x: { ticks: { font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: 'rgba(0,0,0,0.05)' } },
+    y: { ticks: { font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
+  }
 };
 
-const chartTH = new Chart(
-
- document.getElementById("chart-temp-hum"),
-
- {
-  type:"line",
-
-  data:{
-   labels:[],
-   datasets:[
-    {
-      label:"Temperatura",
-      data:[],
-      borderColor:"#E24B4A"
-    },
-    {
-      label:"Humedad",
-      data:[],
-      borderColor:"#185FA5"
-    }
-   ]
+const chartTH = new Chart(document.getElementById('chart-temp-hum'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'Temperatura (°C)', data: [], borderColor: '#E24B4A', backgroundColor: 'rgba(226,75,74,0.08)', tension: 0.3, pointRadius: 2, borderWidth: 1.5 },
+      { label: 'Humedad (%)',      data: [], borderColor: '#185FA5', backgroundColor: 'rgba(24,95,165,0.08)',  tension: 0.3, pointRadius: 2, borderWidth: 1.5 },
+    ]
   },
+  options: { ...chartDefaults }
+});
 
-  options:chartDefaults
- }
-
-);
-
-const chartS = new Chart(
-
- document.getElementById("chart-suelo"),
-
- {
-  type:"line",
-
-  data:{
-   labels:[],
-   datasets:[
-    {
-      label:"Suelo 1",
-      data:[],
-      borderColor:"#3B6D11"
-    },
-    {
-      label:"Suelo 2",
-      data:[],
-      borderColor:"#0F6E56"
-    }
-   ]
+const chartS = new Chart(document.getElementById('chart-suelo'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'Suelo Área 1 (%)', data: [], borderColor: '#3B6D11', backgroundColor: 'rgba(59,109,17,0.08)', tension: 0.3, pointRadius: 2, borderWidth: 1.5 },
+      { label: 'Suelo Área 2 (%)', data: [], borderColor: '#0F6E56', backgroundColor: 'rgba(15,110,86,0.08)', tension: 0.3, pointRadius: 2, borderWidth: 1.5 },
+    ]
   },
+  options: { ...chartDefaults }
+});
 
-  options:chartDefaults
- }
-
-);
-
-const chartL = new Chart(
-
- document.getElementById("chart-luz"),
-
- {
-  type:"line",
-
-  data:{
-   labels:[],
-   datasets:[
-    {
-      label:"Luz",
-      data:[],
-      borderColor:"#EF9F27"
-    }
-   ]
+const chartL = new Chart(document.getElementById('chart-luz'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'Luz (lux)', data: [], borderColor: '#EF9F27', backgroundColor: 'rgba(239,159,39,0.1)', tension: 0.3, pointRadius: 2, borderWidth: 1.5, fill: true },
+    ]
   },
+  options: { ...chartDefaults }
+});
 
-  options:chartDefaults
- }
-
-);
-
-const chartG = new Chart(
-
- document.getElementById("chart-gas"),
-
- {
-  type:"line",
-
-  data:{
-   labels:[],
-   datasets:[
-    {
-      label:"Gas",
-      data:[],
-      borderColor:"#A32D2D"
-    }
-   ]
+const chartG = new Chart(document.getElementById('chart-gas'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'Gas (ppm)', data: [], borderColor: '#A32D2D', backgroundColor: 'rgba(163,45,45,0.08)', tension: 0.3, pointRadius: 2, borderWidth: 1.5 },
+    ]
   },
-
-  options:chartDefaults
- }
-
-);
-
-/* 
-   PUSH DATA CHART
- */
-
-function push(chart,val,ds=0){
-
- const t =
- new Date().toLocaleTimeString("es-GT");
-
- if(chart.data.labels.length > 30)
-     chart.data.labels.shift();
-
- chart.data.labels.push(t);
-
- if(chart.data.datasets[ds].data.length > 30)
-     chart.data.datasets[ds].data.shift();
-
- chart.data.datasets[ds].data.push(val);
-
- chart.update("none");
-
-}
-
-/* 
-   SENSOR UPDATE
- */
-
-function updateSensor(k,v){
-
- STATE.lecturas++;
-
- document.getElementById("val-lecturas")
- .textContent=STATE.lecturas;
-
- document.getElementById("val-ultima")
- .textContent="hace 0s";
-
- if(k==="temp"){
-
-    STATE.temp=v;
-
-    document.getElementById("val-temp")
-    .textContent=v+"°C";
-
-    push(chartTH,v,0);
- }
-
- if(k==="hum"){
-
-    STATE.hum=v;
-
-    document.getElementById("val-hum")
-    .textContent=v+"%";
-
-    push(chartTH,v,1);
- }
-
- if(k==="luz"){
-
-    STATE.luz=v;
-
-    document.getElementById("val-luz")
-    .textContent=v;
-
-    push(chartL,v);
- }
-
- if(k==="gas"){
-
-    STATE.gas=v;
-
-    document.getElementById("val-gas")
-    .textContent=v;
-
-    push(chartG,v);
- }
-
- if(k==="s1"){
-
-    STATE.s1=v;
-
-    document.getElementById("val-suelo1")
-    .textContent=v+"%";
-
-    document.getElementById("bar-s1")
-    .style.width=v+"%";
-
-    push(chartS,v,0);
- }
-
- if(k==="s2"){
-
-    STATE.s2=v;
-
-    document.getElementById("val-suelo2")
-    .textContent=v+"%";
-
-    document.getElementById("bar-s2")
-    .style.width=v+"%";
-
-    push(chartS,v,1);
- }
-
- updateGlobal();
- updateLCD();
-
-}
-
-/* 
-   GLOBAL STATUS
- */
-
-function updateGlobal(){
-
- let g="NORMAL";
-
- if(STATE.gas >= CFG.GAS_EMRG){
-
-    g="EMERGENCIA";
-
- }else if(
-
-    STATE.temp >= CFG.TEMP_WARN ||
-    STATE.s1 < CFG.SUELO_SECO ||
-    STATE.s2 < CFG.SUELO_SECO ||
-    STATE.luz < CFG.LUZ_LOW
-
- ){
-
-    g="ADVERTENCIA";
- }
-
- document.getElementById("global-state")
- .textContent=g;
-
-}
-
-/* 
-   LCD
- */
-
-const screens=[];
-
-function buildLCD(){
-
- screens.length=0;
-
- if(STATE.temp!==null){
-
-    screens.push([
-      "Temp "+STATE.temp,
-      "Hum "+STATE.hum
-    ]);
- }
-
- if(STATE.s1!==null){
-
-    screens.push([
-      "Suelo1 "+STATE.s1+"%",
-      "Suelo2 "+STATE.s2+"%"
-    ]);
- }
-
- if(STATE.luz!==null){
-
-    screens.push([
-      "Luz "+STATE.luz,
-      "Gas "+STATE.gas
-    ]);
- }
-
- if(screens.length===0){
-
-    screens.push([
-      "INVERNADERO",
-      "Esperando..."
-    ]);
- }
-
-}
-
-function updateLCD(){
-
- buildLCD();
-
- const s =
- screens[
- STATE.lcdIndex % screens.length
- ];
-
- document.getElementById("lcd-l1")
- .textContent=s[0];
-
- document.getElementById("lcd-l2")
- .textContent=s[1];
-
- STATE.lcdIndex++;
-
-}
-
-setInterval(updateLCD,3000);
-
-/* 
-   CONTROL MQTT
- */
-
-function enviarComando(dispositivo,accion){
-
- if(!STATE.mqtt) return;
-
- const topic =
- `${CFG.topicBase}/control/${dispositivo}`;
-
- STATE.mqtt.publish(
-  topic,
-  accion
- );
-
- console.log(
-  "Comando enviado:",
-  topic,
-  accion
- );
-
-}
-
-/* 
-   MQTT
- */
-
-function connect(){
-
- const client = mqtt.connect(
-  CFG.mqttBroker,
-  {
-   clientId:CFG.clientId
+  options: { ...chartDefaults }
+});
+
+function pushToChart(val, chartObj, datasetIdx) {
+  const ts = new Date().toLocaleTimeString('es-GT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  if (datasetIdx === 0) {
+    if (chartObj.data.labels.length >= 30) { chartObj.data.labels.shift(); }
+    chartObj.data.labels.push(ts);
   }
- );
-
- client.on("connect",()=>{
-
-  document.getElementById("pi-status")
-  .textContent="Conectado";
-
-  client.subscribe(
-   CFG.topicBase+"/sensores/#"
-  );
-
-  client.subscribe(
-   CFG.topicBase+"/estado/#"
-  );
-
- });
-
- client.on("message",(topic,payload)=>{
-
-  const msg = payload.toString();
-
-  const num = parseFloat(msg);
-
-  /* sensores */
-
-  if(topic.includes("temperatura"))
-      updateSensor("temp",num);
-
-  if(topic.includes("humedad_ambiente"))
-      updateSensor("hum",num);
-
-  if(topic.includes("luz"))
-      updateSensor("luz",num);
-
-  if(topic.includes("gas"))
-      updateSensor("gas",num);
-
-  if(topic.includes("humedad_suelo_area1"))
-      updateSensor("s1",num);
-
-  if(topic.includes("humedad_suelo_area2"))
-      updateSensor("s2",num);
-
-  /* estados actuadores */
-
-  if(topic.includes("estado/bomba")){
-
-     document.getElementById(
-     "estado-bomba"
-     ).textContent = msg;
-  }
-
-  if(topic.includes("estado/ventilador")){
-
-     document.getElementById(
-     "estado-ventilador"
-     ).textContent = msg;
-  }
-
-  if(topic.includes("estado/luces")){
-
-     document.getElementById(
-     "estado-luces"
-     ).textContent = msg;
-  }
-
-  if(topic.includes("estado/modo")){
-
-     document.getElementById(
-     "estado-modo"
-     ).textContent = msg;
-  }
-
- });
-
- client.on("error",()=>{
-
-  document.getElementById("pi-status")
-  .textContent="Error MQTT";
-
- });
-
- STATE.mqtt = client;
-
+  if (chartObj.data.datasets[datasetIdx].data.length >= 30) { chartObj.data.datasets[datasetIdx].data.shift(); }
+  chartObj.data.datasets[datasetIdx].data.push(val);
+  chartObj.update('none');
 }
 
-/* 
-   START
- */
+/*  Actualizar UI  */
+function updateSensor(key, val) {
+  const ts = new Date().toLocaleTimeString('es-GT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  STATE.lecturas++;
+  document.getElementById('val-lecturas').textContent = STATE.lecturas;
+  document.getElementById('val-ultima').textContent = 'hace 0s';
+  document.getElementById('st-conn').textContent = 'En línea';
 
-connect();
+  // Topic dots
+  document.querySelectorAll('.topic-live').forEach(d => d.style.background = '#639922');
 
+  if (key === 'temp') {
+    STATE.temp = val;
+    document.getElementById('val-temp').textContent = val;
+    document.getElementById('t-temp').textContent = val + '°C';
+    const ok = val < CFG.TEMP_WARN;
+    setStatus('st-temp', ok ? 'Normal' : 'Alta — ventilador ON', ok ? 'ok' : 'warn');
+    pushToChart(val, chartTH, 0);
+    if (!ok) addEvent('Temperatura alta (' + val + '°C)', 'warn');
+  }
+  if (key === 'hum') {
+    STATE.hum = val;
+    document.getElementById('val-hum').textContent = val;
+    document.getElementById('t-hum').textContent = val + '%';
+    const ok = val >= CFG.HUM_LOW && val <= CFG.HUM_HIGH;
+    setStatus('st-hum', ok ? 'Normal' : (val < CFG.HUM_LOW ? 'Baja' : 'Alta'), ok ? 'ok' : 'warn');
+    pushToChart(val, chartTH, 1);
+  }
+  if (key === 'luz') {
+    STATE.luz = val;
+    document.getElementById('val-luz').textContent = val;
+    document.getElementById('t-luz').textContent = val + ' lux';
+    const ok = val >= CFG.LUZ_LOW;
+    setStatus('st-luz', ok ? 'Suficiente' : 'Baja — luces ON', ok ? 'ok' : 'warn');
+    pushToChart(val, chartL, 0);
+  }
+  if (key === 'gas') {
+    STATE.gas = val;
+    document.getElementById('val-gas').textContent = val;
+    document.getElementById('t-gas').textContent = val + ' ppm';
+    const ok = val < CFG.GAS_WARN; const emrg = val >= CFG.GAS_EMRG;
+    setStatus('st-gas', ok ? 'Sin riesgo' : (emrg ? '⚠ EMERGENCIA' : 'Advertencia'), ok ? 'ok' : (emrg ? 'danger' : 'warn'));
+    pushToChart(val, chartG, 0);
+    if (emrg) { setGlobalState('EMERGENCIA'); addEvent('GAS EMERGENCIA — ' + val + ' ppm', 'danger'); }
+  }
+  if (key === 'suelo1') {
+    STATE.suelo1 = val;
+    document.getElementById('val-suelo1').textContent = val;
+    document.getElementById('t-s1').textContent = val + '%';
+    const st = val < CFG.SUELO_SECO ? 'Seco' : (val > CFG.SUELO_SAT ? 'Saturado' : 'Normal');
+    document.getElementById('st-suelo1').textContent = st;
+    const fill = val < CFG.SUELO_SECO ? 'fill-amber' : (val > CFG.SUELO_SAT ? 'fill-red' : 'fill-green');
+    const bar = document.getElementById('bar-s1');
+    bar.className = 'bar-fill ' + fill;
+    bar.style.width = Math.min(val, 100) + '%';
+    pushToChart(val, chartS, 0);
+  }
+  if (key === 'suelo2') {
+    STATE.suelo2 = val;
+    document.getElementById('val-suelo2').textContent = val;
+    document.getElementById('t-s2').textContent = val + '%';
+    const st = val < CFG.SUELO_SECO ? 'Seco' : (val > CFG.SUELO_SAT ? 'Saturado' : 'Normal');
+    document.getElementById('st-suelo2').textContent = st;
+    const fill = val < CFG.SUELO_SECO ? 'fill-amber' : (val > CFG.SUELO_SAT ? 'fill-red' : 'fill-green');
+    const bar = document.getElementById('bar-s2');
+    bar.className = 'bar-fill ' + fill;
+    bar.style.width = Math.min(val, 100) + '%';
+    pushToChart(val, chartS, 1);
+  }
+  updateGlobalState();
+  updateLCD();
+}
+
+function setStatus(id, text, cls) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'mc-sub ' + cls;
+}
+
+function updateGlobalState() {
+  const s = STATE;
+  let g = 'NORMAL';
+  if (s.gas !== null && s.gas >= CFG.GAS_EMRG) g = 'EMERGENCIA';
+  else if ((s.temp !== null && s.temp >= CFG.TEMP_WARN) ||
+           (s.suelo1 !== null && s.suelo1 < CFG.SUELO_SECO) ||
+           (s.suelo2 !== null && s.suelo2 < CFG.SUELO_SECO) ||
+           (s.luz !== null && s.luz < CFG.LUZ_LOW)) g = 'ADVERTENCIA';
+  else if (s.riego1 || s.riego2) g = 'RIEGO_ACTIVO';
+  else if (s.modo === 'manual') g = 'MODO_MANUAL';
+  setGlobalState(g);
+}
+
+function setGlobalState(g) {
+  STATE.global = g;
+  const el = document.getElementById('global-state');
+  el.textContent = '● ' + g;
+  el.className = 'global-badge ' + (g === 'NORMAL' ? 'state-normal' : g === 'EMERGENCIA' ? 'state-emergency' : 'state-warn');
+  document.getElementById('t-global').textContent = g;
+  // LEDs
+  const leds = { g: g === 'NORMAL', y: g === 'ADVERTENCIA' || g === 'RIEGO_ACTIVO', r: g === 'EMERGENCIA' };
+  setActIcon('ic-led-g', 'as-led-g', leds.g, 'NORMAL', 'Apagado', 'ic-green');
+  setActIcon('ic-led-y', 'as-led-y', leds.y, 'ADVERTENCIA', 'Apagado', 'ic-amber');
+  setActIcon('ic-led-r', 'as-led-r', leds.r, 'EMERGENCIA', 'Apagado', 'ic-red');
+}
+
+function setActIcon(iconId, stateId, on, onLabel, offLabel, colorClass) {
+  document.getElementById(iconId).className = 'act-icon ' + (on ? colorClass : 'ic-gray');
+  const s = document.getElementById(stateId);
+  s.textContent = on ? onLabel : offLabel;
+  s.className = 'act-state ' + (on ? 'as-on' : 'as-off');
+}
+
+/*  Actuadores  */
+function toggleActuador(name) {
+  if (STATE.modo !== 'manual') { showToast('Cambia a modo manual primero'); return; }
+  if (name === 'bomba')     { STATE.bomba = !STATE.bomba; publishCmd('riego', STATE.bomba ? 'ON':'OFF'); }
+  if (name === 'ventilador'){ STATE.ventilador = !STATE.ventilador; publishCmd('ventilador', STATE.ventilador ? 'ON':'OFF'); }
+  if (name === 'luces')     { STATE.luces = !STATE.luces; publishCmd('luces', STATE.luces ? 'ON':'OFF'); }
+  updateActuadoresUI();
+}
+
+function silenciarAlarma() {
+  STATE.alarma = false;
+  publishCmd('alarma', 'SILENCIAR');
+  setActIcon('ic-alarm','as-alarm', false, 'Activa','Silenciada','ic-red');
+  showToast('Alarma silenciada');
+}
+
+function updateActuadoresUI() {
+  setActIcon('ic-bomba','as-bomba', STATE.bomba, 'Encendida','Apagada','ic-green');
+  setActIcon('ic-vent','as-vent', STATE.ventilador, 'Encendido','Apagado','ic-green');
+  setActIcon('ic-luces','as-luces', STATE.luces, 'Encendidas','Apagadas','ic-green');
+  document.getElementById('t-riego').textContent = (STATE.riego1 || STATE.riego2) ? 'ON' : 'OFF';
+  document.getElementById('t-vent').textContent = STATE.ventilador ? 'ON' : 'OFF';
+}
+
+function toggleRiego(area) {
+  if (area === 1) { STATE.riego1 = !STATE.riego1; publishCmd('riego_area1', STATE.riego1 ? 'ON':'OFF'); updateRiegoUI(1); }
+  if (area === 2) { STATE.riego2 = !STATE.riego2; publishCmd('riego_area2', STATE.riego2 ? 'ON':'OFF'); updateRiegoUI(2); }
+}
+
+function updateRiegoUI(area) {
+  const on = area === 1 ? STATE.riego1 : STATE.riego2;
+  const chip = document.getElementById('riego' + area + '-chip');
+  const btn  = document.getElementById('btn-riego' + area);
+  chip.textContent = on ? 'Riego activo' : 'Sin riego';
+  btn.className = 'btn-riego ' + (on ? 'btn-on' : 'btn-off');
+  btn.innerHTML = on ? '<i class="ti ti-player-stop"></i> Detener' : '<i class="ti ti-droplet"></i> Regar';
+  const badge = document.getElementById('riego-badge');
+  badge.textContent = (STATE.riego1 || STATE.riego2) ? 'ON' : 'OFF';
+  badge.className = 'nav-badge ' + ((STATE.riego1 || STATE.riego2) ? 'badge-green' : '');
+  STATE.bomba = STATE.riego1 || STATE.riego2;
+  updateActuadoresUI();
+  updateGlobalState();
+}
+
+/*  Modo  */
+function setMode(m) {
+  STATE.modo = m;
+  document.getElementById('btn-auto').className   = m === 'auto'   ? 'active' : '';
+  document.getElementById('btn-manual').className = m === 'manual' ? 'active' : '';
+  publishCmd('modo', m.toUpperCase());
+  showToast('Modo ' + (m === 'auto' ? 'automático' : 'manual') + ' activado');
+  updateGlobalState();
+}
+
+/*  LCD simulation  */
+const lcdScreens = [];
+let lcdIdx = 0;
+
+function buildLCDScreens() {
+  lcdScreens.length = 0;
+  const s = STATE;
+  if (s.temp !== null)   lcdScreens.push(['Temperatura:    ','  ' + s.temp + ' C           ']);
+  if (s.hum !== null)    lcdScreens.push(['Humedad aire:   ','  ' + s.hum + ' %           ']);
+  if (s.suelo1 !== null) lcdScreens.push(['Suelo Area 1:   ','  ' + s.suelo1 + ' %           ']);
+  if (s.suelo2 !== null) lcdScreens.push(['Suelo Area 2:   ','  ' + s.suelo2 + ' %           ']);
+  if (s.luz !== null)    lcdScreens.push(['Luz ambiental:  ','  ' + s.luz + ' lux         ']);
+  if (s.gas !== null)    lcdScreens.push(['Gas/humo:       ','  ' + s.gas + ' ppm         ']);
+  lcdScreens.push(['Riego: ' + (s.riego1||s.riego2 ? 'ACTIVO  ':'OFF     '), 'Vent:  ' + (s.ventilador ? 'ON      ':'OFF     ')]);
+  lcdScreens.push(['Estado global:  ', '  ' + s.global.slice(0,16).padEnd(16)]);
+  if (lcdScreens.length === 0) lcdScreens.push(['INVERNADERO IoT ','Esperando...    ']);
+}
+
+function updateLCD() {
+  buildLCDScreens();
+  if (STATE.global === 'EMERGENCIA') {
+    document.getElementById('lcd-l1').textContent = '!! EMERGENCIA !!';
+    document.getElementById('lcd-l2').textContent = 'GAS: ' + (STATE.gas || '--') + ' ppm    ';
+    return;
+  }
+  if (lcdScreens.length === 0) return;
+  const screen = lcdScreens[lcdIdx % lcdScreens.length];
+  document.getElementById('lcd-l1').textContent = screen[0].padEnd(16).slice(0,16);
+  document.getElementById('lcd-l2').textContent = screen[1].padEnd(16).slice(0,16);
+}
+
+setInterval(() => { lcdIdx++; updateLCD(); }, 3000);
+
+/*  Eventos  */
+function addEvent(text, type) {
+  const colors = { ok:'#639922', warn:'#EF9F27', danger:'#E24B4A' };
+  const time = new Date().toLocaleTimeString('es-GT',{hour:'2-digit',minute:'2-digit'});
+  STATE.events.unshift({ text, type, time });
+  if (STATE.events.length > 20) STATE.events.pop();
+  const list = document.getElementById('events-list');
+  list.innerHTML = STATE.events.map(ev =>
+    `<div class="ev-item">
+      <div class="ev-dot" style="background:${colors[ev.type]||colors.ok}"></div>
+      <div class="ev-text">${ev.text}</div>
+      <div class="ev-time">${ev.time}</div>
+    </div>`
+  ).join('');
+  document.getElementById('events-badge').textContent = Math.min(STATE.events.length, 99);
+}
+
+/*  ARM64 results  */
+function updateARM64(data) {
+  if (data.MODULE === 'WEIGHTED_MEAN') {
+    document.getElementById('arm-media').textContent = data.WEIGHTED_MEAN ?? '--';
+  }
+  if (data.MODULE === 'VARIANCE') {
+    document.getElementById('arm-var-val').textContent = 'σ = ' + (data.STD_DEV ?? '--');
+  }
+  if (data.MODULE === 'ANOMALY_DETECTION') {
+    const el = document.getElementById('arm-anom');
+    el.textContent = (data.ANOMALIES ?? '--') + ' · ' + (data.SYSTEM_RISK ?? '--');
+    el.style.color = data.SYSTEM_RISK === 'HIGH' ? 'var(--red)' : data.SYSTEM_RISK === 'MEDIUM' ? 'var(--amber)' : 'var(--green)';
+  }
+  if (data.MODULE === 'PREDICTION') {
+    document.getElementById('arm-pred').textContent = data.NEXT_VALUE ?? '--';
+  }
+  if (data.MODULE === 'ADVANCED_TREND') {
+    const t = data.TREND;
+    const el = document.getElementById('arm-trend');
+    el.textContent = t === 'UP' ? '↑ UP' : t === 'DOWN' ? '↓ DOWN' : '→ STABLE';
+    el.style.color = t === 'UP' ? 'var(--green)' : t === 'DOWN' ? 'var(--red)' : 'var(--text2)';
+    document.getElementById('arm-trend-detail').textContent =
+      (data.INCREMENTS ?? '--') + ' incrementos · ' +
+      (data.DECREMENTS ?? '--') + ' decrementos · racha máx ' + (data.MAX_UP_STREAK ?? '--');
+  }
+}
+
+/*  Comandos log  */
+function logCmd(actuador, cmd) {
+  const time = new Date().toLocaleTimeString('es-GT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  STATE.cmdLog.unshift({ time, actuador, cmd, origen: 'Dashboard' });
+  if (STATE.cmdLog.length > 20) STATE.cmdLog.pop();
+  const tbody = document.getElementById('cmd-tbody');
+  tbody.innerHTML = STATE.cmdLog.map(c =>
+    `<tr><td>${c.time}</td><td>${c.actuador}</td><td><b>${c.cmd}</b></td><td>${c.origen}</td></tr>`
+  ).join('');
+}
+
+/*  Toast  */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.style.display = 'flex';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+/*  MQTT  */
+function connectMQTT() {
+  try {
+    const client = mqtt.connect(CFG.mqttBroker, {
+      clientId: CFG.clientId,
+      username: CFG.mqttUser || undefined,
+      password: CFG.mqttPass || undefined,
+      reconnectPeriod: 3000,
+    });
+
+    client.on('connect', () => {
+      document.getElementById('pi-status').textContent = 'MQTT conectado';
+      document.getElementById('pi-dot').style.background = '#639922';
+      document.getElementById('mqtt-badge').textContent = '●';
+      document.getElementById('mqtt-status-txt').textContent = 'Conectado · ' + CFG.mqttBroker;
+
+      const topics = [
+        CFG.topicBase + '/sensores/#',
+        CFG.topicBase + '/actuadores/#',
+        CFG.topicBase + '/estado/#',
+        CFG.topicBase + '/arm64/#',
+      ];
+      topics.forEach(t => client.subscribe(t));
+      addEvent('MQTT conectado — suscrito a ' + CFG.topicBase + '/#', 'ok');
+    });
+
+    client.on('message', (topic, payload) => {
+      const msg = payload.toString().trim();
+      const parts = topic.split('/');
+      const subtopic = parts.slice(1).join('/');
+
+      // Sensores
+      const numVal = parseFloat(msg);
+      if (subtopic === 'sensores/temperatura')        updateSensor('temp',   numVal);
+      if (subtopic === 'sensores/humedad_ambiente')   updateSensor('hum',    numVal);
+      if (subtopic === 'sensores/luz')                updateSensor('luz',    numVal);
+      if (subtopic === 'sensores/gas')                updateSensor('gas',    numVal);
+      if (subtopic === 'sensores/humedad_suelo_area1') updateSensor('suelo1', numVal);
+      if (subtopic === 'sensores/humedad_suelo_area2') updateSensor('suelo2', numVal);
+
+      // Actuadores
+      if (subtopic === 'actuadores/riego_area1')  { STATE.riego1 = msg === 'ON'; updateRiegoUI(1); }
+      if (subtopic === 'actuadores/riego_area2')  { STATE.riego2 = msg === 'ON'; updateRiegoUI(2); }
+      if (subtopic === 'actuadores/ventilador')   { STATE.ventilador = msg === 'ON'; updateActuadoresUI(); }
+      if (subtopic === 'actuadores/luces')        { STATE.luces = msg === 'ON'; updateActuadoresUI(); }
+      if (subtopic === 'actuadores/alarma')       {
+        STATE.alarma = msg === 'ON';
+        setActIcon('ic-alarm','as-alarm', STATE.alarma, 'Activa','Silenciada','ic-red');
+        if (STATE.alarma) addEvent('Alarma activada', 'danger');
+      }
+
+      // Estado global
+      if (subtopic === 'estado/global') setGlobalState(msg);
+
+      // ARM64
+      if (subtopic.startsWith('arm64/')) {
+        try { updateARM64(JSON.parse(msg)); } catch(e) {}
+      }
+    });
+
+    client.on('error', (err) => {
+      document.getElementById('pi-status').textContent = 'Error MQTT';
+      document.getElementById('pi-dot').style.background = '#E24B4A';
+    });
+
+    client.on('disconnect', () => {
+      document.getElementById('pi-status').textContent = 'Reconectando...';
+      document.getElementById('pi-dot').style.background = '#EF9F27';
+    });
+
+    STATE.mqtt = client;
+  } catch(e) {
+    document.getElementById('pi-status').textContent = 'Sin MQTT (offline)';
+  }
+}
+
+function publishCmd(actuador, cmd) {
+  const topic = CFG.topicBase + '/control/remoto';
+  const payload = JSON.stringify({ actuador, cmd, ts: Date.now(), origen: 'dashboard' });
+  if (STATE.mqtt && STATE.mqtt.connected) {
+    STATE.mqtt.publish(topic, payload);
+    showToast('Comando enviado: ' + actuador + ' → ' + cmd);
+  } else {
+    showToast('Sin conexión MQTT — comando no enviado');
+  }
+  logCmd(actuador, cmd);
+  addEvent('Comando remoto: ' + actuador + ' → ' + cmd, 'ok');
+}
+
+connectMQTT();
 updateLCD();
-
+setGlobalState('NORMAL');
 </script>
-
 </body>
 </html>
