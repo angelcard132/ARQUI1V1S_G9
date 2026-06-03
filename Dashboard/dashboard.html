@@ -1,19 +1,28 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Invernadero ARQUI 1 GRUPO 9</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+<title>Invernadero IoT - Monitoreo y Control</title>
+
+<link rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js"></script>
 
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-     --bg:        #d4d4d2;
+*,*::before,*::after{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+}
+
+:root{
+
+        --bg:        #d4d4d2;
     --surface:   #d4d4d2;
     --surface2:  #d4d4d2;
     --border:    rgba(0,0,0,0.09);
@@ -37,585 +46,1254 @@
     --radius-lg: 12px;
     --font: 'Segoe UI', system-ui, sans-serif;
     --mono: 'Consolas', 'Fira Code', monospace;
-  }
+}
 
-  html,body{
+html,
+body{
     height:100%;
     font-family:var(--font);
     background:var(--bg);
     color:var(--text);
     font-size:14px;
-  }
+}
 
-  .shell{display:flex;height:100vh;overflow:hidden;}
+.shell{
+    display:flex;
+    height:100vh;
+    overflow:hidden;
+}
 
-  /* SIDEBAR (solo monitoreo) */
-  .sidebar{
-    width:210px;
+/* 
+   SIDEBAR
+ */
+
+.sidebar{
+    width:220px;
     background:var(--surface);
-    border-right:0.5px solid var(--border);
+    border-right:.5px solid var(--border);
     display:flex;
     flex-direction:column;
-  }
+}
 
-  .sidebar-logo{
+.sidebar-logo{
     padding:18px 16px;
-    border-bottom:0.5px solid var(--border);
-  }
+    border-bottom:.5px solid var(--border);
+}
 
-  .logo-icon{
-    width:34px;height:34px;
-    background:var(--green-bg);
+.logo-icon{
+    width:36px;
+    height:36px;
     border-radius:8px;
     display:flex;
     align-items:center;
     justify-content:center;
+    background:var(--green-bg);
     margin-bottom:8px;
-  }
+}
 
-  .logo-icon i{color:var(--green);font-size:20px;}
+.logo-icon i{
+    color:var(--green);
+    font-size:20px;
+}
 
-  .proj-name{font-size:14px;font-weight:500;}
-  .proj-sub{font-size:11px;color:var(--text3);}
+.proj-name{
+    font-size:14px;
+    font-weight:600;
+}
 
-  .nav-section{padding:10px 8px;}
+.proj-sub{
+    font-size:11px;
+    color:var(--text3);
+}
 
-  .nav-label{
+.nav-section{
+    padding:10px 8px;
+}
+
+.nav-label{
     font-size:10px;
+    text-transform:uppercase;
     color:var(--text3);
     padding:0 8px 6px;
-    text-transform:uppercase;
-  }
+}
 
-  .nav-item{
+.nav-item{
     display:flex;
     align-items:center;
     gap:8px;
-    padding:7px 10px;
-    border-radius:6px;
     text-decoration:none;
     color:var(--text2);
-    font-size:13px;
-  }
+    padding:8px 10px;
+    border-radius:6px;
+    margin-bottom:3px;
+}
 
-  .nav-item.active{background:var(--green-bg);color:var(--green-dark);}
+.nav-item.active{
+    background:var(--green-bg);
+    color:var(--green-dark);
+}
 
-  .sidebar-footer{
+.sidebar-footer{
     margin-top:auto;
-    padding:12px;
+    padding:14px;
     font-size:12px;
     color:var(--text3);
-  }
+}
 
-  /* MAIN */
-  .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+/* 
+   MAIN
+ */
 
-  .topbar{
+.main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+}
+
+.topbar{
     padding:10px 20px;
     background:var(--surface);
-    border-bottom:0.5px solid var(--border);
+    border-bottom:.5px solid var(--border);
+
     display:flex;
     align-items:center;
     gap:12px;
-  }
+}
 
-  .topbar h1{font-size:15px;font-weight:500;flex:1;}
+.topbar h1{
+    flex:1;
+    font-size:15px;
+    font-weight:600;
+}
 
-  .global-badge{
-    padding:4px 10px;
+.global-badge{
+    padding:5px 12px;
     border-radius:20px;
-    font-size:12px;
     background:var(--green-bg);
     color:var(--green-dark);
-  }
+    font-size:12px;
+}
 
-  .topbar-time{font-size:12px;color:var(--text3);}
+.topbar-time{
+    font-size:12px;
+    color:var(--text3);
+}
 
-  .content{
+.content{
     flex:1;
     overflow-y:auto;
     padding:16px 20px;
+
     display:flex;
     flex-direction:column;
     gap:16px;
-  }
+}
 
-  .metric-row{
+/* 
+   TARJETAS
+ */
+
+.metric-row{
     display:grid;
     grid-template-columns:repeat(6,1fr);
     gap:10px;
-  }
+}
 
-  .metric-card{
+.metric-card{
     background:var(--surface2);
     border-radius:var(--radius-md);
     padding:10px;
-  }
+}
 
-  .mc-label{font-size:11px;color:var(--text2);}
-  .mc-value{font-size:22px;font-weight:500;}
+.mc-label{
+    font-size:11px;
+    color:var(--text2);
+}
 
-  .panel{
+.mc-value{
+    font-size:22px;
+    font-weight:600;
+}
+
+.panel{
     background:var(--surface);
-    border:0.5px solid var(--border);
+    border:.5px solid var(--border);
     border-radius:var(--radius-lg);
     overflow:hidden;
-  }
+}
 
-  .panel-header{
+.panel-header{
     padding:10px 16px;
-    border-bottom:0.5px solid var(--border);
+    border-bottom:.5px solid var(--border);
+    font-weight:600;
     font-size:13px;
-    font-weight:500;
-  }
+}
 
-  .panel-body{padding:14px;}
+.panel-body{
+    padding:14px;
+}
 
-  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.two-col{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+}
 
-  .area-card{
-    border:0.5px solid var(--border);
+/* 
+   CULTIVOS
+ */
+
+.area-card{
+    border:.5px solid var(--border);
     border-radius:8px;
     overflow:hidden;
-  }
+}
 
-  .area-head{
+.area-head{
     padding:8px 12px;
     background:var(--green-bg);
-    font-weight:500;
-  }
+    font-weight:600;
+}
 
-  .area-body{padding:10px;background:var(--surface2);}
+.area-body{
+    padding:10px;
+}
 
-  .bar-track{
+.bar-track{
     height:6px;
-    background:var(--border);
-    border-radius:3px;
+    background:#bdbdbd;
+    border-radius:5px;
     overflow:hidden;
-  }
+}
 
-  .bar-fill{
+.bar-fill{
     height:100%;
-    background:var(--green);
     width:0%;
-  }
+    background:var(--green);
+}
 
-  .lcd{
+/* 
+   LCD
+ */
+
+.lcd{
     background:#1a2e0a;
     color:#7ec84a;
     font-family:monospace;
+    border-radius:8px;
     padding:12px;
-    border-radius:6px;
-  }
+}
 
-  .chart-wrap{height:180px;}
+/* 
+   CHARTS
+ */
+
+.chart-wrap{
+    height:180px;
+}
+
+/* 
+   CONTROL
+ */
+
+.control-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:12px;
+}
+
+.control-card{
+    border:.5px solid var(--border);
+    border-radius:10px;
+    padding:15px;
+    background:#d4d4d2;
+}
+
+.control-title{
+    font-weight:600;
+    margin-bottom:10px;
+}
+
+.control-status{
+    margin-top:10px;
+    font-size:12px;
+    color:var(--text2);
+}
+
+.btn{
+    border:none;
+    border-radius:8px;
+    padding:10px 14px;
+    cursor:pointer;
+    font-weight:600;
+}
+
+.btn-on{
+    background:#2ea043;
+    color:white;
+}
+
+.btn-off{
+    background:#d1242f;
+    color:white;
+}
+
+.btn-row{
+    display:flex;
+    gap:8px;
+}
+
+@media(max-width:1000px){
+
+    .metric-row{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+    .two-col{
+        grid-template-columns:1fr;
+    }
+
+    .control-grid{
+        grid-template-columns:1fr;
+    }
+}
 
 </style>
 </head>
+
 <body>
 
 <div class="shell">
 
-  <!-- SIDEBAR -->
-  <nav class="sidebar">
-    <div class="sidebar-logo">
-      <div class="logo-icon">
-        <i class="ti ti-plant-2"></i>
-      </div>
-      <div class="proj-name">Invernadero IoT</div>
-      <div class="proj-sub">Monitoreo</div>
-    </div>
+<nav class="sidebar">
 
-    <div class="nav-section">
-      <div class="nav-label">monitoreo</div>
-      <a class="nav-item active" href="#dashboard">
-        Dashboard
-      </a>
-      <a class="nav-item" href="#historico">
-        Histórico
-      </a>
-    </div>
+<div class="sidebar-logo">
 
-    <div class="sidebar-footer">
-      Estado: <span id="pi-status">Sin conexión</span>
-    </div>
-  </nav>
-
-  <!-- MAIN -->
-  <div class="main">
-
-    <!-- TOPBAR -->
-    <div class="topbar">
-      <h1>Panel de monitoreo</h1>
-      <span class="global-badge" id="global-state">NORMAL</span>
-      <span class="topbar-time" id="clock">--:--:--</span>
-    </div>
-
-    <!-- CONTENT -->
-    <div class="content">
-
-      <!-- SENSORES -->
-      <section id="dashboard">
-        <div class="metric-row">
-
-          <div class="metric-card">
-            <div class="mc-label">Temperatura</div>
-            <div class="mc-value" id="val-temp">--</div>
-          </div>
-
-          <div class="metric-card">
-            <div class="mc-label">Humedad aire</div>
-            <div class="mc-value" id="val-hum">--</div>
-          </div>
-
-          <div class="metric-card">
-            <div class="mc-label">Luz</div>
-            <div class="mc-value" id="val-luz">--</div>
-          </div>
-
-          <div class="metric-card">
-            <div class="mc-label">Gas</div>
-            <div class="mc-value" id="val-gas">--</div>
-          </div>
-
-          <div class="metric-card">
-            <div class="mc-label">Lecturas</div>
-            <div class="mc-value" id="val-lecturas">0</div>
-          </div>
-
-          <div class="metric-card">
-            <div class="mc-label">Última lectura</div>
-            <div class="mc-value" id="val-ultima">--</div>
-          </div>
-
-        </div>
-      </section>
-
-      <!-- ÁREAS -->
-      <div class="two-col">
-
-        <div class="panel">
-          <div class="panel-header">Área de cultivo 1</div>
-          <div class="panel-body area-card">
-            <div class="area-head">Humedad suelo</div>
-            <div class="area-body">
-              <div class="bar-track">
-                <div class="bar-fill" id="bar-s1"></div>
-              </div>
-              <p id="val-suelo1">--</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header">Área de cultivo 2</div>
-          <div class="panel-body area-card">
-            <div class="area-head">Humedad suelo</div>
-            <div class="area-body">
-              <div class="bar-track">
-                <div class="bar-fill" id="bar-s2"></div>
-              </div>
-              <p id="val-suelo2">--</p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- LCD -->
-      <div class="panel">
-        <div class="panel-header">Vista LCD</div>
-        <div class="panel-body">
-          <div class="lcd">
-            <div id="lcd-l1">INVERNADERO</div>
-            <div id="lcd-l2">Esperando datos...</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- GRÁFICAS -->
-      <div class="two-col" id="historico">
-
-        <div class="panel">
-          <div class="panel-header">Temperatura / Humedad</div>
-          <div class="panel-body">
-            <div class="chart-wrap">
-              <canvas id="chart-temp-hum"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header">Humedad suelo</div>
-          <div class="panel-body">
-            <div class="chart-wrap">
-              <canvas id="chart-suelo"></canvas>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <div class="two-col">
-
-        <div class="panel">
-          <div class="panel-header">Luz</div>
-          <div class="panel-body">
-            <div class="chart-wrap">
-              <canvas id="chart-luz"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header">Gas</div>
-          <div class="panel-body">
-            <div class="chart-wrap">
-              <canvas id="chart-gas"></canvas>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-  </div>
+<div class="logo-icon">
+<i class="ti ti-plant-2"></i>
 </div>
 
-<div id="toast"></div>
+<div class="proj-name">
+Invernadero ARQUI 1
+</div>
+
+<div class="proj-sub">
+Monitoreo y Control
+</div>
+
+</div>
+
+<div class="nav-section">
+
+<div class="nav-label">
+Sistema
+</div>
+
+<a class="nav-item active" href="#dashboard">
+Dashboard
+</a>
+
+<a class="nav-item" href="#control">
+Control
+</a>
+
+<a class="nav-item" href="#historico">
+Histórico
+</a>
+
+</div>
+
+<div class="sidebar-footer">
+Estado:
+<span id="pi-status">Sin conexión</span>
+</div>
+
+</nav>
+
+<div class="main">
+
+<div class="topbar">
+
+<h1>
+Panel de Monitoreo y Control
+</h1>
+
+<span class="global-badge" id="global-state">
+NORMAL
+</span>
+
+<span class="topbar-time" id="clock">
+--:--:--
+</span>
+
+</div>
+
+<div class="content">
+
+<!-- SENSORES -->
+
+<section id="dashboard">
+
+<div class="metric-row">
+
+<div class="metric-card">
+<div class="mc-label">Temperatura</div>
+<div class="mc-value" id="val-temp">--</div>
+</div>
+
+<div class="metric-card">
+<div class="mc-label">Humedad aire</div>
+<div class="mc-value" id="val-hum">--</div>
+</div>
+
+<div class="metric-card">
+<div class="mc-label">Luz</div>
+<div class="mc-value" id="val-luz">--</div>
+</div>
+
+<div class="metric-card">
+<div class="mc-label">Gas</div>
+<div class="mc-value" id="val-gas">--</div>
+</div>
+
+<div class="metric-card">
+<div class="mc-label">Lecturas</div>
+<div class="mc-value" id="val-lecturas">0</div>
+</div>
+
+<div class="metric-card">
+<div class="mc-label">Última lectura</div>
+<div class="mc-value" id="val-ultima">--</div>
+</div>
+
+</div>
+
+</section>
+
+<!-- ÁREAS DE CULTIVO -->
+
+<div class="two-col">
+
+    <div class="panel">
+        <div class="panel-header">
+            Área de cultivo 1
+        </div>
+
+        <div class="panel-body area-card">
+
+            <div class="area-head">
+                Humedad suelo
+            </div>
+
+            <div class="area-body">
+
+                <div class="bar-track">
+                    <div class="bar-fill" id="bar-s1"></div>
+                </div>
+
+                <p id="val-suelo1">
+                    --
+                </p>
+
+            </div>
+
+        </div>
+    </div>
+
+    <div class="panel">
+
+        <div class="panel-header">
+            Área de cultivo 2
+        </div>
+
+        <div class="panel-body area-card">
+
+            <div class="area-head">
+                Humedad suelo
+            </div>
+
+            <div class="area-body">
+
+                <div class="bar-track">
+                    <div class="bar-fill" id="bar-s2"></div>
+                </div>
+
+                <p id="val-suelo2">
+                    --
+                </p>
+
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- LCD -->
+
+<div class="panel">
+
+    <div class="panel-header">
+        Vista LCD
+    </div>
+
+    <div class="panel-body">
+
+        <div class="lcd">
+
+            <div id="lcd-l1">
+                INVERNADERO
+            </div>
+
+            <div id="lcd-l2">
+                Esperando datos...
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- 
+     CONTROL
+ -->
+
+<section id="control">
+
+<div class="panel">
+
+<div class="panel-header">
+Centro de Control
+</div>
+
+<div class="panel-body">
+
+<div class="control-grid">
+
+<!-- BOMBA -->
+
+<div class="control-card">
+
+<div class="control-title">
+Bomba de Agua
+</div>
+
+<div class="btn-row">
+
+<button
+class="btn btn-on"
+onclick="enviarComando('bomba','on')">
+ENCENDER
+</button>
+
+<button
+class="btn btn-off"
+onclick="enviarComando('bomba','off')">
+APAGAR
+</button>
+
+</div>
+
+<div class="control-status">
+Estado:
+<span id="estado-bomba">
+Desconocido
+</span>
+</div>
+
+</div>
+
+<!-- VENTILADOR -->
+
+<div class="control-card">
+
+<div class="control-title">
+Ventilador
+</div>
+
+<div class="btn-row">
+
+<button
+class="btn btn-on"
+onclick="enviarComando('ventilador','on')">
+ENCENDER
+</button>
+
+<button
+class="btn btn-off"
+onclick="enviarComando('ventilador','off')">
+APAGAR
+</button>
+
+</div>
+
+<div class="control-status">
+Estado:
+<span id="estado-ventilador">
+Desconocido
+</span>
+</div>
+
+</div>
+
+<!-- LUCES -->
+
+<div class="control-card">
+
+<div class="control-title">
+Luces
+</div>
+
+<div class="btn-row">
+
+<button
+class="btn btn-on"
+onclick="enviarComando('luces','on')">
+ENCENDER
+</button>
+
+<button
+class="btn btn-off"
+onclick="enviarComando('luces','off')">
+APAGAR
+</button>
+
+</div>
+
+<div class="control-status">
+Estado:
+<span id="estado-luces">
+Desconocido
+</span>
+</div>
+
+</div>
+
+<!-- MODO -->
+
+<div class="control-card">
+
+<div class="control-title">
+Modo
+</div>
+
+<div class="btn-row">
+
+<button
+class="btn btn-on"
+onclick="enviarComando('modo','automatico')">
+AUTO
+</button>
+
+<button
+class="btn btn-off"
+onclick="enviarComando('modo','manual')">
+MANUAL
+</button>
+
+</div>
+
+<div class="control-status">
+Modo:
+<span id="estado-modo">
+Automático
+</span>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<!-- 
+     HISTÓRICO
+ -->
+
+<div class="two-col" id="historico">
+
+<div class="panel">
+
+<div class="panel-header">
+Temperatura / Humedad
+</div>
+
+<div class="panel-body">
+
+<div class="chart-wrap">
+<canvas id="chart-temp-hum"></canvas>
+</div>
+
+</div>
+
+</div>
+
+<div class="panel">
+
+<div class="panel-header">
+Humedad del Suelo
+</div>
+
+<div class="panel-body">
+
+<div class="chart-wrap">
+<canvas id="chart-suelo"></canvas>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="two-col">
+
+<div class="panel">
+
+<div class="panel-header">
+Luz
+</div>
+
+<div class="panel-body">
+
+<div class="chart-wrap">
+<canvas id="chart-luz"></canvas>
+</div>
+
+</div>
+
+</div>
+
+<div class="panel">
+
+<div class="panel-header">
+Gas
+</div>
+
+<div class="panel-body">
+
+<div class="chart-wrap">
+<canvas id="chart-gas"></canvas>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+</div>
+</div>
+
 <script>
+
 /* 
    CONFIG
  */
-const CFG = {
-  mqttBroker: 'wss://broker.emqx.io:8084/mqtt',
-  topicBase: 'invernadero',
-  clientId: 'mon_' + Math.random().toString(36).slice(2,8),
 
-  TEMP_WARN: 30,
-  HUM_LOW: 40,
-  HUM_HIGH: 80,
-  LUZ_LOW: 250,
-  GAS_WARN: 200,
-  GAS_EMRG: 400,
-  SUELO_SECO: 35
+const CFG = {
+
+ mqttBroker:'wss://broker.emqx.io:8084/mqtt',
+
+ topicBase:'invernadero',
+
+ clientId:'mon_'+Math.random()
+ .toString(36)
+ .slice(2,8),
+
+ TEMP_WARN:30,
+ HUM_LOW:40,
+ HUM_HIGH:80,
+
+ LUZ_LOW:250,
+
+ GAS_WARN:200,
+ GAS_EMRG:400,
+
+ SUELO_SECO:35
+
 };
 
 /* 
    ESTADO
  */
+
 const STATE = {
-  temp:null, hum:null, luz:null, gas:null,
-  s1:null, s2:null,
-  lecturas:0,
-  mqtt:null,
-  lcdIndex:0
+
+ temp:null,
+ hum:null,
+ luz:null,
+ gas:null,
+
+ s1:null,
+ s2:null,
+
+ lecturas:0,
+
+ mqtt:null,
+
+ lcdIndex:0
+
 };
 
-/* 
-   RELOJ
- */
 setInterval(() => {
-  document.getElementById("clock").textContent =
-    new Date().toLocaleTimeString("es-GT");
-}, 1000);
+
+ document.getElementById("clock").textContent =
+ new Date().toLocaleTimeString("es-GT");
+
+},1000);
 
 /* 
    CHARTS
  */
+
 const chartDefaults = {
-  responsive:true,
-  maintainAspectRatio:false
+
+ responsive:true,
+ maintainAspectRatio:false
+
 };
 
-const chartTH = new Chart(document.getElementById("chart-temp-hum"), {
+const chartTH = new Chart(
+
+ document.getElementById("chart-temp-hum"),
+
+ {
   type:"line",
+
   data:{
-    labels:[],
-    datasets:[
-      {label:"Temp", data:[], borderColor:"#E24B4A"},
-      {label:"Hum", data:[], borderColor:"#185FA5"}
-    ]
+   labels:[],
+   datasets:[
+    {
+      label:"Temperatura",
+      data:[],
+      borderColor:"#E24B4A"
+    },
+    {
+      label:"Humedad",
+      data:[],
+      borderColor:"#185FA5"
+    }
+   ]
   },
-  options:chartDefaults
-});
 
-const chartS = new Chart(document.getElementById("chart-suelo"), {
+  options:chartDefaults
+ }
+
+);
+
+const chartS = new Chart(
+
+ document.getElementById("chart-suelo"),
+
+ {
   type:"line",
+
   data:{
-    labels:[],
-    datasets:[
-      {label:"Suelo 1", data:[], borderColor:"#3B6D11"},
-      {label:"Suelo 2", data:[], borderColor:"#0F6E56"}
-    ]
+   labels:[],
+   datasets:[
+    {
+      label:"Suelo 1",
+      data:[],
+      borderColor:"#3B6D11"
+    },
+    {
+      label:"Suelo 2",
+      data:[],
+      borderColor:"#0F6E56"
+    }
+   ]
   },
-  options:chartDefaults
-});
 
-const chartL = new Chart(document.getElementById("chart-luz"), {
+  options:chartDefaults
+ }
+
+);
+
+const chartL = new Chart(
+
+ document.getElementById("chart-luz"),
+
+ {
   type:"line",
-  data:{labels:[], datasets:[{label:"Luz", data:[], borderColor:"#EF9F27"}]},
-  options:chartDefaults
-});
 
-const chartG = new Chart(document.getElementById("chart-gas"), {
+  data:{
+   labels:[],
+   datasets:[
+    {
+      label:"Luz",
+      data:[],
+      borderColor:"#EF9F27"
+    }
+   ]
+  },
+
+  options:chartDefaults
+ }
+
+);
+
+const chartG = new Chart(
+
+ document.getElementById("chart-gas"),
+
+ {
   type:"line",
-  data:{labels:[], datasets:[{label:"Gas", data:[], borderColor:"#A32D2D"}]},
+
+  data:{
+   labels:[],
+   datasets:[
+    {
+      label:"Gas",
+      data:[],
+      borderColor:"#A32D2D"
+    }
+   ]
+  },
+
   options:chartDefaults
-});
+ }
 
-function push(chart, val, ds=0){
-  const t = new Date().toLocaleTimeString("es-GT");
+);
 
-  if(chart.data.labels.length>30) chart.data.labels.shift();
-  chart.data.labels.push(t);
+/* 
+   PUSH DATA CHART
+ */
 
-  if(chart.data.datasets[ds].data.length>30)
-    chart.data.datasets[ds].data.shift();
+function push(chart,val,ds=0){
 
-  chart.data.datasets[ds].data.push(val);
-  chart.update("none");
+ const t =
+ new Date().toLocaleTimeString("es-GT");
+
+ if(chart.data.labels.length > 30)
+     chart.data.labels.shift();
+
+ chart.data.labels.push(t);
+
+ if(chart.data.datasets[ds].data.length > 30)
+     chart.data.datasets[ds].data.shift();
+
+ chart.data.datasets[ds].data.push(val);
+
+ chart.update("none");
+
 }
 
 /* 
-   UI UPDATE
+   SENSOR UPDATE
  */
+
 function updateSensor(k,v){
-  STATE.lecturas++;
 
-  document.getElementById("val-lecturas").textContent = STATE.lecturas;
-  document.getElementById("val-ultima").textContent = "hace 0s";
+ STATE.lecturas++;
 
-  if(k==="temp"){
+ document.getElementById("val-lecturas")
+ .textContent=STATE.lecturas;
+
+ document.getElementById("val-ultima")
+ .textContent="hace 0s";
+
+ if(k==="temp"){
+
     STATE.temp=v;
-    document.getElementById("val-temp").textContent=v;
+
+    document.getElementById("val-temp")
+    .textContent=v+"°C";
+
     push(chartTH,v,0);
-  }
+ }
 
-  if(k==="hum"){
+ if(k==="hum"){
+
     STATE.hum=v;
-    document.getElementById("val-hum").textContent=v;
+
+    document.getElementById("val-hum")
+    .textContent=v+"%";
+
     push(chartTH,v,1);
-  }
+ }
 
-  if(k==="luz"){
+ if(k==="luz"){
+
     STATE.luz=v;
-    document.getElementById("val-luz").textContent=v;
-    push(chartL,v,0);
-  }
 
-  if(k==="gas"){
+    document.getElementById("val-luz")
+    .textContent=v;
+
+    push(chartL,v);
+ }
+
+ if(k==="gas"){
+
     STATE.gas=v;
-    document.getElementById("val-gas").textContent=v;
-    push(chartG,v,0);
-  }
 
-  if(k==="s1"){
+    document.getElementById("val-gas")
+    .textContent=v;
+
+    push(chartG,v);
+ }
+
+ if(k==="s1"){
+
     STATE.s1=v;
-    document.getElementById("val-suelo1").textContent=v+"%";
-    document.getElementById("bar-s1").style.width=v+"%";
+
+    document.getElementById("val-suelo1")
+    .textContent=v+"%";
+
+    document.getElementById("bar-s1")
+    .style.width=v+"%";
+
     push(chartS,v,0);
-  }
+ }
 
-  if(k==="s2"){
+ if(k==="s2"){
+
     STATE.s2=v;
-    document.getElementById("val-suelo2").textContent=v+"%";
-    document.getElementById("bar-s2").style.width=v+"%";
-    push(chartS,v,1);
-  }
 
-  updateGlobal();
-  updateLCD();
+    document.getElementById("val-suelo2")
+    .textContent=v+"%";
+
+    document.getElementById("bar-s2")
+    .style.width=v+"%";
+
+    push(chartS,v,1);
+ }
+
+ updateGlobal();
+ updateLCD();
+
 }
 
 /* 
-   GLOBAL STATE
+   GLOBAL STATUS
  */
+
 function updateGlobal(){
-  let g="NORMAL";
 
-  if(STATE.gas>=CFG.GAS_EMRG) g="EMERGENCIA";
-  else if(
-    STATE.temp>=CFG.TEMP_WARN ||
-    STATE.luz<CFG.LUZ_LOW ||
-    STATE.s1<CFG.SUELO_SECO ||
-    STATE.s2<CFG.SUELO_SECO
-  ) g="ADVERTENCIA";
+ let g="NORMAL";
 
-  STATE.global=g;
-  document.getElementById("global-state").textContent=g;
+ if(STATE.gas >= CFG.GAS_EMRG){
+
+    g="EMERGENCIA";
+
+ }else if(
+
+    STATE.temp >= CFG.TEMP_WARN ||
+    STATE.s1 < CFG.SUELO_SECO ||
+    STATE.s2 < CFG.SUELO_SECO ||
+    STATE.luz < CFG.LUZ_LOW
+
+ ){
+
+    g="ADVERTENCIA";
+ }
+
+ document.getElementById("global-state")
+ .textContent=g;
+
 }
 
 /* 
    LCD
-*/
+ */
+
 const screens=[];
 
 function buildLCD(){
-  screens.length=0;
 
-  if(STATE.temp!==null)
-    screens.push(["Temp: "+STATE.temp,"Hum: "+STATE.hum]);
+ screens.length=0;
 
-  if(STATE.s1!==null)
-    screens.push(["Suelo1 "+STATE.s1+"%","Suelo2 "+STATE.s2+"%"]);
+ if(STATE.temp!==null){
 
-  if(STATE.luz!==null)
-    screens.push(["Luz "+STATE.luz,"Gas "+STATE.gas]);
+    screens.push([
+      "Temp "+STATE.temp,
+      "Hum "+STATE.hum
+    ]);
+ }
 
-  if(screens.length===0)
-    screens.push(["INVERNADERO","Esperando..."]);
+ if(STATE.s1!==null){
+
+    screens.push([
+      "Suelo1 "+STATE.s1+"%",
+      "Suelo2 "+STATE.s2+"%"
+    ]);
+ }
+
+ if(STATE.luz!==null){
+
+    screens.push([
+      "Luz "+STATE.luz,
+      "Gas "+STATE.gas
+    ]);
+ }
+
+ if(screens.length===0){
+
+    screens.push([
+      "INVERNADERO",
+      "Esperando..."
+    ]);
+ }
+
 }
 
 function updateLCD(){
-  buildLCD();
 
-  const s=screens[STATE.lcdIndex%screens.length];
+ buildLCD();
 
-  document.getElementById("lcd-l1").textContent=s[0];
-  document.getElementById("lcd-l2").textContent=s[1];
+ const s =
+ screens[
+ STATE.lcdIndex % screens.length
+ ];
 
-  STATE.lcdIndex++;
+ document.getElementById("lcd-l1")
+ .textContent=s[0];
+
+ document.getElementById("lcd-l2")
+ .textContent=s[1];
+
+ STATE.lcdIndex++;
+
 }
 
 setInterval(updateLCD,3000);
 
 /* 
+   CONTROL MQTT
+ */
+
+function enviarComando(dispositivo,accion){
+
+ if(!STATE.mqtt) return;
+
+ const topic =
+ `${CFG.topicBase}/control/${dispositivo}`;
+
+ STATE.mqtt.publish(
+  topic,
+  accion
+ );
+
+ console.log(
+  "Comando enviado:",
+  topic,
+  accion
+ );
+
+}
+
+/* 
    MQTT
  */
+
 function connect(){
-  const client=mqtt.connect(CFG.mqttBroker,{
-    clientId:CFG.clientId
-  });
 
-  client.on("connect",()=>{
-    document.getElementById("pi-status").textContent="Conectado";
+ const client = mqtt.connect(
+  CFG.mqttBroker,
+  {
+   clientId:CFG.clientId
+  }
+ );
 
-    client.subscribe(CFG.topicBase+"/sensores/#");
-  });
+ client.on("connect",()=>{
 
-  client.on("message",(t,p)=>{
-    const msg=parseFloat(p.toString());
+  document.getElementById("pi-status")
+  .textContent="Conectado";
 
-    if(t.includes("temperatura")) updateSensor("temp",msg);
-    if(t.includes("humedad_ambiente")) updateSensor("hum",msg);
-    if(t.includes("luz")) updateSensor("luz",msg);
-    if(t.includes("gas")) updateSensor("gas",msg);
-    if(t.includes("humedad_suelo_area1")) updateSensor("s1",msg);
-    if(t.includes("humedad_suelo_area2")) updateSensor("s2",msg);
-  });
+  client.subscribe(
+   CFG.topicBase+"/sensores/#"
+  );
 
-  client.on("error",()=>{
-    document.getElementById("pi-status").textContent="Error MQTT";
-  });
+  client.subscribe(
+   CFG.topicBase+"/estado/#"
+  );
 
-  STATE.mqtt=client;
+ });
+
+ client.on("message",(topic,payload)=>{
+
+  const msg = payload.toString();
+
+  const num = parseFloat(msg);
+
+  /* sensores */
+
+  if(topic.includes("temperatura"))
+      updateSensor("temp",num);
+
+  if(topic.includes("humedad_ambiente"))
+      updateSensor("hum",num);
+
+  if(topic.includes("luz"))
+      updateSensor("luz",num);
+
+  if(topic.includes("gas"))
+      updateSensor("gas",num);
+
+  if(topic.includes("humedad_suelo_area1"))
+      updateSensor("s1",num);
+
+  if(topic.includes("humedad_suelo_area2"))
+      updateSensor("s2",num);
+
+  /* estados actuadores */
+
+  if(topic.includes("estado/bomba")){
+
+     document.getElementById(
+     "estado-bomba"
+     ).textContent = msg;
+  }
+
+  if(topic.includes("estado/ventilador")){
+
+     document.getElementById(
+     "estado-ventilador"
+     ).textContent = msg;
+  }
+
+  if(topic.includes("estado/luces")){
+
+     document.getElementById(
+     "estado-luces"
+     ).textContent = msg;
+  }
+
+  if(topic.includes("estado/modo")){
+
+     document.getElementById(
+     "estado-modo"
+     ).textContent = msg;
+  }
+
+ });
+
+ client.on("error",()=>{
+
+  document.getElementById("pi-status")
+  .textContent="Error MQTT";
+
+ });
+
+ STATE.mqtt = client;
+
 }
+
+/* 
+   START
+ */
 
 connect();
 
-/* init */
 updateLCD();
+
 </script>
 
 </body>
