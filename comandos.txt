@@ -1,0 +1,13 @@
+python3 -m http.server
+
+git config --global user.name ""
+git config --global user.email ""
+
+ssh admin1@100.99.170.45
+env:
+python3 -m venv venv
+
+
+git config --list
+git config --global --list
+git config --local --list
