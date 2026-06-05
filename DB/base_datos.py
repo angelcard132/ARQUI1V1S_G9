@@ -1,8 +1,6 @@
 """
-Módulo de Persistencia y Extracción de Datos - Invernadero Inteligente Multi-Área.
-Diseñado para la integración de hardware y tableros de control mediante MongoDB Atlas.
+Módulo de Persistencia y Extracción de Datos
 """
-
 import os
 from datetime import datetime
 from typing import Dict, List, Any, Optional
@@ -32,34 +30,13 @@ except (PyMongoError, ValueError) as err:
 
 
 def _get_timestamp() -> str:
-    """
-    Genera una estampa de tiempo con el formato estándar del sistema.
-    
-    Returns:
-        str: Fecha y hora en formato 'DD/MM/YYYY HH:MM:SS'.
-    """
+
     return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-
-# ==============================================================================
-# OPERACIONES DE ESCRITURA (PERSISTENCIA)
-# ==============================================================================
+# OPERACIONES DE ESCRITURA LA PERSISTENCIA
 
 def guardar_lectura_sensores(area: str, temp: float, hum_a: float, hum_s: float, luz: int, gas: int) -> bool:
-    """
-    Registra la telemetría en el cubo histórico diario e inyecta el estado vivo.
-    
-    Args:
-        area (str): Identificador del área ('area 1', 'area 2').
-        temp (float): Temperatura ambiental en °C.
-        hum_a (float): Humedad ambiental en %.
-        hum_s (float): Humedad del suelo en %.
-        luz (int): Nivel de luminosidad en lux.
-        gas (int): Concentración de gas en ppm.
-        
-    Returns:
-        bool: True si la operación fue exitosa, False de lo contrario.
-    """
+
     if db is None:
         return False
         
@@ -113,15 +90,7 @@ def guardar_lectura_sensores(area: str, temp: float, hum_a: float, hum_s: float,
 
 
 def guardar_log_actuador(area: str, actuador: str, estado: str, origen: str) -> bool:
-    """
-    Registra eventos de conmutación de actuadores de hardware en el sistema.
-    
-    Args:
-        area (str): Área afectada por la conmutación.
-        actuador (str): Nombre del periférico ('bomba_agua', 'ventilador', 'luces_led').
-        estado (str): Nueva directiva de estado ('ON', 'OFF').
-        origen (str): Método disparador ('DASHBOARD', 'SCRIPT_AUTOMATICO').
-    """
+
     if db is None:
         return False
         
@@ -155,9 +124,7 @@ def guardar_log_actuador(area: str, actuador: str, estado: str, origen: str) -> 
 
 
 def guardar_evento(area: str, tipo_dato: str, mensaje: str, valor: Any) -> bool:
-    """
-    Inserta alertas de seguridad perimetral o fallas lógicas de las zonas de cultivo.
-    """
+
     if db is None:
         return False
     try:
@@ -177,9 +144,7 @@ def guardar_evento(area: str, tipo_dato: str, mensaje: str, valor: Any) -> bool:
 
 
 def guardar_comando_manual(area: str, actuador: str, orden: str) -> bool:
-    """
-    Registra peticiones de anulación manual enviadas desde interfaces de usuario.
-    """
+
     if db is None:
         return False
     try:
@@ -198,14 +163,10 @@ def guardar_comando_manual(area: str, actuador: str, orden: str) -> bool:
         return False
 
 
-# ==============================================================================
-# OPERACIONES DE LECTURA (EXTRACCIÓN E INTELIGENCIA)
-# ==============================================================================
+# OPERACIONES DE LECTURA 
 
 def obtener_estado_actual() -> Dict[str, Any]:
-    """
-    Extrae el documento único centralizador de telemetría de tiempo real.
-    """
+
     if db is None:
         return {}
     try:
@@ -217,9 +178,7 @@ def obtener_estado_actual() -> Dict[str, Any]:
 
 
 def obtener_grafica(area: str) -> List[Dict[str, Any]]:
-    """
-    Recupera la serie temporal de datos del día actual para renderizado histórico.
-    """
+
     if db is None:
         return []
     try:
@@ -232,9 +191,7 @@ def obtener_grafica(area: str) -> List[Dict[str, Any]]:
 
 
 def obtener_eventos() -> List[Dict[str, Any]]:
-    """
-    Retorna el top 10 de anomalías cronológicas ocurridas en el invernadero.
-    """
+
     if db is None:
         return []
     try:
@@ -245,19 +202,12 @@ def obtener_eventos() -> List[Dict[str, Any]]:
 
 
 def obtener_datos_dashboard_unificados() -> Dict[str, Any]:
-    """
-    Compila, limpia y unifica la telemetría multi-área concurrente y el histórico
-    de alertas para su transmisión directa al Front-end del Dashboard.
-    
-    Returns:
-        Dict[str, Any]: Diccionario listo para parseo con datos estructurados de áreas.
-    """
+
     estado_maestro = obtener_estado_actual()
     alertas_recientes = obtener_eventos()
     
     estructurado_areas: Dict[str, Any] = {}
     
-    # Procesamiento y empaquetado simétrico para Área 1 y Área 2
     for identificador_zona in ["area 1", "area 2"]:
         nodo_zona = estado_maestro.get("areas", {}).get(identificador_zona, {}) if estado_maestro else {}
         telemetria_cruda = nodo_zona.get("telemetria", {})

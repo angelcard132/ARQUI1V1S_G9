@@ -1,6 +1,6 @@
 """
-Script de Diagnóstico y Pruebas de Lectura - Invernadero Inteligente.
-Utilizado para verificar la correcta extracción y estructuración de datos desde MongoDB Atlas.
+Script de Diagnóstico y Pruebas de Lectura 
+
 """
 
 import json
@@ -24,9 +24,8 @@ def probar_extraccion_datos() -> None:
     
     print("[INFO] Iniciando secuencia de pruebas de lectura en MongoDB Atlas...")
 
-    # ==========================================================================
     # PRUEBA 1: Obtener el documento maestro (system_status)
-    # ==========================================================================
+
     imprimir_separador("1. DOCUMENTO MAESTRO EN TIEMPO REAL (_id: greenhouse_state_g9)")
     estado_maestro: Dict[str, Any] = obtener_estado_actual()
     
@@ -38,9 +37,7 @@ def probar_extraccion_datos() -> None:
         print("[ADVERTENCIA] No se encontró el documento 'greenhouse_state_g9' o la colección está vacía.")
 
 
-    # ==========================================================================
     # PRUEBA 2: Obtener arreglos históricos para las 6 gráficas (sensor_readings)
-    # ==========================================================================
     imprimir_separador("2. SERIES TEMPORALES DIARIAS (Para Gráficas de Laboratorio)")
     
     for zona in ["area 1", "area 2"]:
@@ -56,9 +53,7 @@ def probar_extraccion_datos() -> None:
             print(f"   [!] Sin lecturas registradas el día de hoy para el cubo de {zona}.")
 
 
-    # ==========================================================================
-    # PRUEBA 3: Obtener bitácora de anomalías (events)
-    # ==========================================================================
+    # PRUEBA 3: Obtener bitácora de anomalías 
     imprimir_separador("3. REGISTRO CRONOLÓGICO DE EVENTOS Y ALERTAS (Top 10)")
     lista_eventos: List[Dict[str, Any]] = obtener_eventos()
     
@@ -66,10 +61,7 @@ def probar_extraccion_datos() -> None:
     for idx, evento in enumerate(lista_eventos, 1):
         print(f"  {idx}. [{evento.get('fecha_hora')}] [{evento.get('area', 'GENERAL').upper()}] ({evento.get('tipo_dato')}) -> {evento.get('mensaje')}")
 
-
-    # ==========================================================================
     # PRUEBA 4: Obtener estructura exacta optimizada para el Dashboard Front-end
-    # ==========================================================================
     imprimir_separador("4. COMPILADO UNIFICADO FINAL (Formato JSON Dashboard)")
     paquete_dashboard: Dict[str, Any] = obtener_datos_dashboard_unificados()
     

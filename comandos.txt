@@ -7,6 +7,9 @@ ssh admin1@100.99.170.45
 env:
 python3 -m venv venv
 
+python main.py --sim (main para poder correrlo pero sin hardware conectado)
+
+source venv/bin/activate (activar el entorno de python)
 
 git config --list
 git config --global --list
