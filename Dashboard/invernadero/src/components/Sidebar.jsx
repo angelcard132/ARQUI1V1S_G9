@@ -29,12 +29,9 @@ export default function Sidebar() {
 
       {/* Logo */}
       <div style={styles.logo}>
-        <div style={styles.logoIcon}>
-          <i className="ti ti-plant-2" style={{ fontSize: 22, color: '#3a6b1a' }} />
-        </div>
         <div>
-          <div style={styles.logoName}>Invernadero IoT</div>
-          <div style={styles.logoSub}>ACYE1 · Grupo 9</div>
+          <div style={styles.logoName}>Invernadero</div>
+          <div style={styles.logoSub}>ARQUI 1 | PRIMER PROYECTO</div>
         </div>
       </div>
 

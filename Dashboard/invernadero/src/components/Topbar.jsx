@@ -9,7 +9,7 @@ export default function Topbar() {
     <header style={styles.topbar}>
       <div style={styles.left}>
         <h1 style={styles.title}>Panel de monitoreo</h1>
-        <span style={styles.sub}>broker.emqx.io · {BASE_TOPIC}</span>
+        <span style={styles.sub}>MQTT | MONGO DB | ARM64 | {BASE_TOPIC}</span>
       </div>
 
       <div style={styles.right}>
@@ -49,7 +49,7 @@ export default function Topbar() {
   )
 }
 
-const BASE_TOPIC = 'invernadero/G9/#'
+const BASE_TOPIC = 'Vacaciones 2026 | Primer Semestre'
 
 const styles = {
   topbar: {

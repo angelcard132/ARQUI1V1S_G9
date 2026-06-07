@@ -1,12 +1,14 @@
 import {
   createContext,
+  useContext,
   useReducer,
   useEffect,
   useRef,
-  useCallback,
+  useCallback
 } from 'react'
 import mqtt from 'mqtt'
 import { MQTT_CONFIG, TOPICS, BASE } from '../lib/config'
+
 
 /* 
    Estado inicial
@@ -120,10 +122,9 @@ function reducer(state, action) {
   }
 }
 
-/*  
+/* 
    Context
     */
-   
 const Ctx = createContext(null)
 
 export function InvernaderoProvider({ children }) {
@@ -143,7 +144,7 @@ export function InvernaderoProvider({ children }) {
     })
   }, [])
 
-  /* sParsear mensaje MQTT  */
+  /*  Parsear mensaje MQTT  */
   const parseMensaje = useCallback((topic, payload) => {
     let data
     try   { data = JSON.parse(payload) }
@@ -259,3 +260,6 @@ export function InvernaderoProvider({ children }) {
     </Ctx.Provider>
   )
 }
+// Deshabilitar la configuración de eslint para evitar error, aunque funcione la pagina con ese error
+// eslint-disable-next-line react-refresh/only-export-components
+export const useInvernadero = () => useContext(Ctx)
