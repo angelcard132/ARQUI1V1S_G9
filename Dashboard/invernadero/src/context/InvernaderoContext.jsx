@@ -260,6 +260,7 @@ export function InvernaderoProvider({ children }) {
     </Ctx.Provider>
   )
 }
+
 // Deshabilitar la configuración de eslint para evitar error, aunque funcione la pagina con ese error
 // eslint-disable-next-line react-refresh/only-export-components
 export const useInvernadero = () => useContext(Ctx)
