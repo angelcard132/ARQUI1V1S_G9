@@ -49,9 +49,7 @@ UMBRAL_SUELO_SECO = 35
 UMBRAL_SUELO_SAT  = 80
 DURACION_RIEGO    = 10
 
-#  Pines GPIO (Raspberry Pi) 
-# Los actuadores y el DHT siguen conectados DIRECTO a la Raspi.
-# El Arduino maneja los analógicos (LDR, MQ, suelo).
+
 PIN_BOMBA1     = 1
 PIN_BOMBA2     = 27
 PIN_VENTILADOR = 22
@@ -67,10 +65,6 @@ PIN_BTN3       = 21
 PIN_BTN4       = 12
 PIN_DHT        = 17
 
-#  Puerto Serial del Arduino 
-# Arduino Uno/Nano con CH340 → /dev/ttyUSB0
-# Arduino con ATmega32U4    → /dev/ttyACM0
-# Para encontrar el tuyo: conecta el Arduino y corre: ls /dev/tty*
 ARDUINO_PORT     = "/dev/ttyACM0"   
 ARDUINO_BAUDRATE = 9600
 
@@ -96,15 +90,12 @@ state = {
 
 timers_riego = {}
 
-#  INICIALIZACIÓN DE HARDWARE
-#  Cambia respecto al original: reemplaza MCP3008/SPI por Serial
-# ─────────────────────────────────────────────────────────────
+
 gpio_ok    = False
 arduino_ok = False
 arduino    = None   # objeto serial global
 
 if not SIMULACION:
-    # ── 1. GPIO de Raspi (actuadores + DHT) ──────────────────
     try:
         import RPi.GPIO as GPIO
         import adafruit_dht, board
@@ -127,10 +118,7 @@ if not SIMULACION:
     except Exception as e:
         print(f"[GPIO] Sin hardware GPIO: {e} — modo simulacion")
 
-    # ── 2. Arduino por Serial (ADC analógico) ─────────────────
-    # REEMPLAZA al MCP3008 por SPI que tenías antes.
-    # El Arduino envía cada 2s:
-    #   {"ldr":320,"gas":145,"suelo1":680,"suelo2":590}
+
     try:
         import serial as pyserial
         arduino = pyserial.Serial(ARDUINO_PORT, ARDUINO_BAUDRATE, timeout=3)
@@ -141,12 +129,6 @@ if not SIMULACION:
         print(f"[Arduino] Sin conexión serial: {e} — sensores analógicos simulados")
 
 
-# ─────────────────────────────────────────────────────────────
-#  LECTURA DEL ARDUINO
-#  Función auxiliar para leer una línea JSON del Arduino.
-#  Retorna dict con ldr, gas, suelo1, suelo2  (valores 0-1023).
-#  Si falla, retorna None para que leer_sensores() use simulación.
-# ─────────────────────────────────────────────────────────────
 _ultimo_arduino = {"ldr": 300, "gas": 100, "suelo1": 500, "suelo2": 500}
 
 def leer_arduino():
@@ -172,9 +154,7 @@ def leer_arduino():
             clave, valor = parte.split(":")
             datos[clave.strip().upper()] = int(valor.strip())
 
-        # Mapear nombres del Arduino a los que espera el backend
-        # Tu Arduino manda LUZ, GAS, SUELO
-        # Si tienes dos sensores de suelo, el Arduino mandaría SUELO1 y SUELO2
+
         resultado = {
             "ldr":    datos.get("LUZ",   300),
             "gas":    datos.get("GAS",   100),
@@ -199,8 +179,6 @@ def convertir_analogico(raw_ldr, raw_gas, raw_suelo1, raw_suelo2):
     # Gas: valor alto = más gas. Escalamos a 0-1000.
     gas = round(raw_gas / 1023 * 1000)
 
-    # Suelo RESISTIVO: mismo mapear() que usas en tu código de prueba
-    # mapear(valor, in_min=1023, in_max=0, out_min=0, out_max=100)
     suelo1 = round((1023 - raw_suelo1) / 1023 * 100)
     suelo2 = round((1023 - raw_suelo2) / 1023 * 100)
 
@@ -232,17 +210,9 @@ if not SIMULACION:
     except Exception as e:
         print(f"[LCD] Sin LCD: {e}")
 
-# ─────────────────────────────────────────────────────────────
-#  LECTURA DE SENSORES
-#  Cambios respecto al original:
-#    - Ya NO importa adafruit_mcp3xxx ni busio
-#    - Los analógicos vienen del Arduino por Serial
-#    - El DHT sigue leyéndose igual desde GPIO de la Raspi
-# ─────────────────────────────────────────────────────────────
 def leer_sensores():
     import random
 
-    # ── Hardware real ─────────────────────────────────────────
     if gpio_ok:
         # 1. DHT22 — temperatura y humedad (sigue igual, directo en Raspi)
         try:
@@ -263,8 +233,7 @@ def leer_sensores():
                 ard.get("suelo2", 500),
             )
         else:
-            # Arduino no disponible → simular esos 4 valores
-            # (el DHT real sí se usó arriba)
+
             luz    = round((state["luz"]    or 400) + random.uniform(-20, 15))
             gas    = round((state["gas"]    or 100) + random.uniform(-5,  10))
             suelo1 = round((state["suelo1"] or 50)  + random.uniform(-1,   0.4))
@@ -280,8 +249,7 @@ def leer_sensores():
             "suelo2": max(0, min(100,  suelo2)),
         }
 
-    # ── Simulación completa (--sim o sin hardware) ────────────
-    # Esta parte NO cambia respecto a tu original
+
     else:
         def v(base, mn, mx, dn, dp):
             val = (base or (mn + mx) / 2) + random.uniform(dn, dp)
@@ -296,9 +264,6 @@ def leer_sensores():
         }
 
 
-# ─────────────────────────────────────────────────────────────
-#  TODO LO DE ABAJO NO CAMBIA NADA respecto a tu original
-# ─────────────────────────────────────────────────────────────
 
 def gpio_set(pin, on):
     if gpio_ok:
@@ -554,16 +519,14 @@ def actualizar_lcd(lectura):
     try:
         estado = state["global"]
 
-        # Emergencia → alerta fija, no rotar
         if estado == "EMERGENCIA":
             lcd.clear()
-            lcd.write_string("!! EMERGENCIA !!")
+            lcd.write_string("¡¡EMERGENCIA !!")
             lcd.crlf()
             lcd.write_string(f"Gas:{lectura['gas']:<4} PELIGRO")
             return
 
-        # Rotar entre pantallas cada llamada
-        # Usamos un contador global para saber qué mostrar
+
         pantalla = state.get("lcd_pantalla", 0)
         state["lcd_pantalla"] = (pantalla + 1) % 5
 
