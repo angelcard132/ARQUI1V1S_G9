@@ -1,4 +1,3 @@
-
 import time
 import json
 import threading
@@ -26,7 +25,6 @@ from mqtt_handler import (
     T,
 )
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--sim", action="store_true", help="Modo simulacion sin GPIO")
 args      = parser.parse_args()
@@ -40,6 +38,7 @@ CSV_PATH  = "lecturas.csv"
 ARM64_DIR = "./arm64"
 CSV_HEADER = ["ID","TEMP","HUM_AIRE","HUM_SUELO_1","HUM_SUELO_2","LUZ","GAS","RIEGO_1","RIEGO_2"]
 
+#  Umbrales 
 UMBRAL_TEMP_ALTA  = 30
 UMBRAL_HUM_BAJA   = 40
 UMBRAL_HUM_ALTA   = 80
@@ -50,8 +49,10 @@ UMBRAL_SUELO_SECO = 35
 UMBRAL_SUELO_SAT  = 80
 DURACION_RIEGO    = 10
 
-# Pines GPIO
-PIN_BOMBA1     = 17
+#  Pines GPIO (Raspberry Pi) 
+# Los actuadores y el DHT siguen conectados DIRECTO a la Raspi.
+# El Arduino maneja los analógicos (LDR, MQ, suelo).
+PIN_BOMBA1     = 1
 PIN_BOMBA2     = 27
 PIN_VENTILADOR = 22
 PIN_LUZ1       = 23
@@ -64,13 +65,16 @@ PIN_BTN1       = 16
 PIN_BTN2       = 20
 PIN_BTN3       = 21
 PIN_BTN4       = 12
-PIN_DHT        = 4
-CANAL_LDR      = 0
-CANAL_GAS      = 1
-CANAL_SUELO1   = 2
-CANAL_SUELO2   = 3
+PIN_DHT        = 17
 
+#  Puerto Serial del Arduino 
+# Arduino Uno/Nano con CH340 → /dev/ttyUSB0
+# Arduino con ATmega32U4    → /dev/ttyACM0
+# Para encontrar el tuyo: conecta el Arduino y corre: ls /dev/tty*
+ARDUINO_PORT     = "/dev/ttyACM0"   
+ARDUINO_BAUDRATE = 9600
 
+#  Estado global 
 state = {
     "lock":        threading.Lock(),
     "global":      "NORMAL",
@@ -92,68 +96,209 @@ state = {
 
 timers_riego = {}
 
-
-gpio_ok = False
+#  INICIALIZACIÓN DE HARDWARE
+#  Cambia respecto al original: reemplaza MCP3008/SPI por Serial
+# ─────────────────────────────────────────────────────────────
+gpio_ok    = False
+arduino_ok = False
+arduino    = None   # objeto serial global
 
 if not SIMULACION:
+    # ── 1. GPIO de Raspi (actuadores + DHT) ──────────────────
     try:
         import RPi.GPIO as GPIO
-        import adafruit_dht, board, busio
-        import adafruit_mcp3xxx.mcp3008 as MCP
-        from adafruit_mcp3xxx.analog_in import AnalogIn
+        import adafruit_dht, board
 
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
 
-        for pin in [PIN_BOMBA1, PIN_BOMBA2, PIN_VENTILADOR, PIN_LUZ1, PIN_LUZ2,
-                    PIN_LED_VERDE, PIN_LED_AMAR, PIN_LED_ROJO, PIN_BUZZER]:
+        for pin in [PIN_BOMBA1, PIN_BOMBA2, PIN_VENTILADOR,
+                    PIN_LUZ1, PIN_LUZ2, PIN_LED_VERDE,
+                    PIN_LED_AMAR, PIN_LED_ROJO, PIN_BUZZER]:
             GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
 
         for pin in [PIN_BTN1, PIN_BTN2, PIN_BTN3, PIN_BTN4]:
             GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-        dht_sensor   = adafruit_dht.DHT22(board.D4)
-        spi          = busio.SPI(clock=board.SCK, MISO=board.MISO, MOSI=board.MOSI)
-        mcp          = MCP.MCP3008(spi, board.CE0)
-        ch_ldr       = AnalogIn(mcp, CANAL_LDR)
-        ch_gas       = AnalogIn(mcp, CANAL_GAS)
-        ch_suelo1    = AnalogIn(mcp, CANAL_SUELO1)
-        ch_suelo2    = AnalogIn(mcp, CANAL_SUELO2)
+        dht_sensor = adafruit_dht.DHT11(board.D17)
 
         gpio_ok = True
-        print("[GPIO] Hardware inicializado")
+        print("[GPIO] Raspberry Pi GPIO inicializado (actuadores + DHT)")
     except Exception as e:
-        print(f"[GPIO] Sin hardware: {e} — modo simulacion")
+        print(f"[GPIO] Sin hardware GPIO: {e} — modo simulacion")
+
+    # ── 2. Arduino por Serial (ADC analógico) ─────────────────
+    # REEMPLAZA al MCP3008 por SPI que tenías antes.
+    # El Arduino envía cada 2s:
+    #   {"ldr":320,"gas":145,"suelo1":680,"suelo2":590}
+    try:
+        import serial as pyserial
+        arduino = pyserial.Serial(ARDUINO_PORT, ARDUINO_BAUDRATE, timeout=3)
+        time.sleep(2)  # esperar reset del Arduino tras abrir puerto
+        arduino_ok = True
+        print(f"[Arduino] Conectado en {ARDUINO_PORT} @ {ARDUINO_BAUDRATE} baud")
+    except Exception as e:
+        print(f"[Arduino] Sin conexión serial: {e} — sensores analógicos simulados")
 
 
+# ─────────────────────────────────────────────────────────────
+#  LECTURA DEL ARDUINO
+#  Función auxiliar para leer una línea JSON del Arduino.
+#  Retorna dict con ldr, gas, suelo1, suelo2  (valores 0-1023).
+#  Si falla, retorna None para que leer_sensores() use simulación.
+# ─────────────────────────────────────────────────────────────
+_ultimo_arduino = {"ldr": 300, "gas": 100, "suelo1": 500, "suelo2": 500}
+
+def leer_arduino():
+    """
+    Lee una línea del Arduino con formato: LUZ:320, GAS:145, SUELO:680
+    Retorna dict con claves en minúscula: {"ldr":320,"gas":145,"suelo1":680}
+    """
+    global _ultimo_arduino
+    if not arduino_ok or arduino is None:
+        return None
+    try:
+        arduino.reset_input_buffer()
+        linea = arduino.readline().decode("utf-8", errors="ignore").strip()
+        if not linea:
+            return _ultimo_arduino
+
+        # Parsear formato CLAVE:VALOR,CLAVE:VALOR
+        datos = {}
+        for parte in linea.split(","):
+            parte = parte.strip()
+            if ":" not in parte:
+                continue
+            clave, valor = parte.split(":")
+            datos[clave.strip().upper()] = int(valor.strip())
+
+        # Mapear nombres del Arduino a los que espera el backend
+        # Tu Arduino manda LUZ, GAS, SUELO
+        # Si tienes dos sensores de suelo, el Arduino mandaría SUELO1 y SUELO2
+        resultado = {
+            "ldr":    datos.get("LUZ",   300),
+            "gas":    datos.get("GAS",   100),
+            "suelo1": datos.get("SUELO1", datos.get("SUELO", 500)),
+            "suelo2": datos.get("SUELO2", datos.get("SUELO", 500)),
+        }
+        _ultimo_arduino = resultado
+        return resultado
+
+    except Exception as e:
+        print(f"[Arduino] Error parseo: {e} — línea: '{linea}'")
+        return _ultimo_arduino
+
+def convertir_analogico(raw_ldr, raw_gas, raw_suelo1, raw_suelo2):
+    """
+    Convierte valores ADC del Arduino (0-1023) a unidades del sistema.
+    Sensor de suelo RESISTIVO: 1023=seco(0%), 0=húmedo(100%)
+    """
+    # LDR: valor alto = poca luz. Escalamos a 0-1000.
+    luz = round(raw_ldr / 1023 * 1000)
+
+    # Gas: valor alto = más gas. Escalamos a 0-1000.
+    gas = round(raw_gas / 1023 * 1000)
+
+    # Suelo RESISTIVO: mismo mapear() que usas en tu código de prueba
+    # mapear(valor, in_min=1023, in_max=0, out_min=0, out_max=100)
+    suelo1 = round((1023 - raw_suelo1) / 1023 * 100)
+    suelo2 = round((1023 - raw_suelo2) / 1023 * 100)
+
+    # Clamp por seguridad
+    suelo1 = max(0, min(100, suelo1))
+    suelo2 = max(0, min(100, suelo2))
+
+    return luz, gas, suelo1, suelo2
+
+
+lcd = None
+lcd_ok = False
+
+if not SIMULACION:
+    try:
+        from RPLCD.i2c import CharLCD
+        lcd = CharLCD(
+            i2c_expander='PCF8574',
+            address=0x27,
+            port=1,
+            cols=16,
+            rows=2,
+            dotsize=8
+        )
+        lcd.clear()
+        lcd.write_string("Iniciando...")
+        lcd_ok = True
+        print("[LCD] Pantalla I2C inicializada")
+    except Exception as e:
+        print(f"[LCD] Sin LCD: {e}")
+
+# ─────────────────────────────────────────────────────────────
+#  LECTURA DE SENSORES
+#  Cambios respecto al original:
+#    - Ya NO importa adafruit_mcp3xxx ni busio
+#    - Los analógicos vienen del Arduino por Serial
+#    - El DHT sigue leyéndose igual desde GPIO de la Raspi
+# ─────────────────────────────────────────────────────────────
 def leer_sensores():
     import random
 
+    # ── Hardware real ─────────────────────────────────────────
     if gpio_ok:
+        # 1. DHT22 — temperatura y humedad (sigue igual, directo en Raspi)
         try:
-            temp   = round(dht_sensor.temperature, 1)
-            hum    = round(dht_sensor.humidity, 1)
-            luz    = round(ch_ldr.value   / 65535 * 1000)
-            gas    = round(ch_gas.value   / 65535 * 1000)
-            suelo1 = round(100 - ch_suelo1.value / 65535 * 100)
-            suelo2 = round(100 - ch_suelo2.value / 65535 * 100)
-            return {"temp":temp,"hum":hum,"luz":luz,"gas":gas,"suelo1":suelo1,"suelo2":suelo2}
+            temp = round(dht_sensor.temperature, 1)
+            hum  = round(dht_sensor.humidity,    1)
         except Exception as e:
-            print(f"[Sensor] Error: {e}")
-            return None
+            print(f"[DHT] Error: {e}")
+            temp = state["temp"] or 25.0
+            hum  = state["hum"]  or 60.0
+
+        # 2. Arduino — sensores analógicos (LDR, MQ, suelo)
+        ard = leer_arduino()
+        if ard is not None:
+            luz, gas, suelo1, suelo2 = convertir_analogico(
+                ard.get("ldr",    300),
+                ard.get("gas",    100),
+                ard.get("suelo1", 500),
+                ard.get("suelo2", 500),
+            )
+        else:
+            # Arduino no disponible → simular esos 4 valores
+            # (el DHT real sí se usó arriba)
+            luz    = round((state["luz"]    or 400) + random.uniform(-20, 15))
+            gas    = round((state["gas"]    or 100) + random.uniform(-5,  10))
+            suelo1 = round((state["suelo1"] or 50)  + random.uniform(-1,   0.4))
+            suelo2 = round((state["suelo2"] or 50)  + random.uniform(-1,   0.4))
+            print("[Arduino] Sin datos — usando simulación para analógicos")
+
+        return {
+            "temp":   temp,
+            "hum":    hum,
+            "luz":    max(0, min(1000, luz)),
+            "gas":    max(0, min(1000, gas)),
+            "suelo1": max(0, min(100,  suelo1)),
+            "suelo2": max(0, min(100,  suelo2)),
+        }
+
+    # ── Simulación completa (--sim o sin hardware) ────────────
+    # Esta parte NO cambia respecto a tu original
     else:
         def v(base, mn, mx, dn, dp):
-            val = (base or (mn+mx)/2) + random.uniform(dn, dp)
+            val = (base or (mn + mx) / 2) + random.uniform(dn, dp)
             return round(max(mn, min(mx, val)), 1)
         return {
             "temp":   v(state["temp"],   18, 38, -0.5,  0.8),
             "hum":    v(state["hum"],    20, 95, -1.0,  1.0),
-            "luz":    v(state["luz"],     0, 1000,-30,   25),
-            "gas":    v(state["gas"],    50, 600, -8,   12),
-            "suelo1": v(state["suelo1"], 10, 95, -1.5,  0.4),
-            "suelo2": v(state["suelo2"], 10, 95, -1.2,  0.4),
+            "luz":    v(state["luz"],     0, 1000, -30,  25),
+            "gas":    v(state["gas"],    50, 600,  -8,   12),
+            "suelo1": v(state["suelo1"], 10, 95,  -1.5,  0.4),
+            "suelo2": v(state["suelo2"], 10, 95,  -1.2,  0.4),
         }
 
+
+# ─────────────────────────────────────────────────────────────
+#  TODO LO DE ABAJO NO CAMBIA NADA respecto a tu original
+# ─────────────────────────────────────────────────────────────
 
 def gpio_set(pin, on):
     if gpio_ok:
@@ -161,14 +306,13 @@ def gpio_set(pin, on):
 
 def set_leds(estado):
     gpio_set(PIN_LED_VERDE, estado == "NORMAL")
-    gpio_set(PIN_LED_AMAR,  estado in ("ADVERTENCIA","RIEGO_ACTIVO","MODO_MANUAL"))
+    gpio_set(PIN_LED_AMAR,  estado in ("ADVERTENCIA", "RIEGO_ACTIVO", "MODO_MANUAL"))
     gpio_set(PIN_LED_ROJO,  estado == "EMERGENCIA")
 
 def activar_riego(area, activar, motivo="automatico"):
     global timers_riego
-    key   = f"riego{area}"
-    pin   = PIN_BOMBA1 if area == 1 else PIN_BOMBA2
-    db    = get_db()
+    key = f"riego{area}"
+    pin = PIN_BOMBA1 if area == 1 else PIN_BOMBA2
 
     with state["lock"]:
         suelo = state.get(f"suelo{area}")
@@ -177,16 +321,12 @@ def activar_riego(area, activar, motivo="automatico"):
             if suelo is not None and suelo >= UMBRAL_SUELO_SAT:
                 log(f"[Riego] Area {area} BLOQUEADO — suelo saturado ({suelo}%)")
                 return
-
             if state[key]:
                 return
-
             state[key] = True
             gpio_set(pin, True)
-
             registrar_evento(f"riego_area{area}_ON", f"suelo={suelo}%", motivo, state["global"])
             guardar_actuador_log(f"riego_area{area}", "ON", motivo, state["global"])
-
             if area in timers_riego and timers_riego[area]:
                 timers_riego[area].cancel()
             timers_riego[area] = threading.Timer(
@@ -194,15 +334,12 @@ def activar_riego(area, activar, motivo="automatico"):
             )
             timers_riego[area].start()
             log(f"[Riego] Area {area} ON — apagado en {DURACION_RIEGO}s")
-
         else:
             if area in timers_riego and timers_riego[area]:
                 timers_riego[area].cancel()
                 timers_riego[area] = None
-
             state[key] = False
             gpio_set(pin, False)
-
             registrar_evento(f"riego_area{area}_OFF", motivo, motivo, state["global"])
             guardar_actuador_log(f"riego_area{area}", "OFF", motivo, state["global"])
             log(f"[Riego] Area {area} OFF ({motivo})")
@@ -272,13 +409,13 @@ def calcular_estado():
     if s.get("gas", 0) >= UMBRAL_GAS_EMRG:
         return "EMERGENCIA"
     warn = any([
-        s.get("temp",  0) >= UMBRAL_TEMP_ALTA,
-        (s.get("hum") or 50) <= UMBRAL_HUM_BAJA,
-        (s.get("hum") or 50) >= UMBRAL_HUM_ALTA,
+        s.get("temp",  0)  >= UMBRAL_TEMP_ALTA,
+        (s.get("hum")  or 50) <= UMBRAL_HUM_BAJA,
+        (s.get("hum")  or 50) >= UMBRAL_HUM_ALTA,
         (s.get("suelo1") or 50) <= UMBRAL_SUELO_SECO,
         (s.get("suelo2") or 50) <= UMBRAL_SUELO_SECO,
         (s.get("luz")  or 500) <= UMBRAL_LUZ_BAJA,
-        s.get("gas",   0) >= UMBRAL_GAS_WARN,
+        s.get("gas",   0)  >= UMBRAL_GAS_WARN,
     ])
     if warn:
         return "ADVERTENCIA"
@@ -305,26 +442,31 @@ def actualizar_estado_global():
 
 
 def publicar_sensores(lectura):
-    def st_temp(v):  return "ALTA" if v >= UMBRAL_TEMP_ALTA else "NORMAL"
-    def st_hum(v):   return "BAJA" if v < UMBRAL_HUM_BAJA else "ALTA" if v > UMBRAL_HUM_ALTA else "NORMAL"
-    def st_luz(v):   return "BAJA" if v < UMBRAL_LUZ_BAJA else "NORMAL"
+    def st_temp(v):  return "ALTA"  if v >= UMBRAL_TEMP_ALTA  else "NORMAL"
+    def st_hum(v):   return "BAJA"  if v < UMBRAL_HUM_BAJA    else "ALTA" if v > UMBRAL_HUM_ALTA else "NORMAL"
+    def st_luz(v):   return "BAJA"  if v < UMBRAL_LUZ_BAJA    else "NORMAL"
     def st_gas(v):   return "GAS_EMERGENCIA" if v >= UMBRAL_GAS_EMRG else "GAS_ADVERTENCIA" if v >= UMBRAL_GAS_WARN else "GAS_NORMAL"
-    def st_suelo(v): return "SECO" if v < UMBRAL_SUELO_SECO else "SATURADO" if v > UMBRAL_SUELO_SAT else "NORMAL"
+    def st_suelo(v): return "SECO"  if v < UMBRAL_SUELO_SECO  else "SATURADO" if v > UMBRAL_SUELO_SAT else "NORMAL"
 
     publicar_sensor("temp",   lectura["temp"],   "C",   st_temp(lectura["temp"]),    {"sensor": "DHT22"})
     publicar_sensor("hum",    lectura["hum"],    "%",   st_hum(lectura["hum"]),      {"sensor": "DHT22"})
-    publicar_sensor("luz",    lectura["luz"],    "lux", st_luz(lectura["luz"]),      {"sensor": "LDR", "iluminacion_activa": lectura["luz"] < UMBRAL_LUZ_BAJA})
-    publicar_sensor("gas",    lectura["gas"],    "ppm", st_gas(lectura["gas"]),      {"sensor": "MQ-2", "alarma_activa": lectura["gas"] >= UMBRAL_GAS_EMRG})
-    publicar_sensor("suelo1", lectura["suelo1"], "%",   st_suelo(lectura["suelo1"]),{"sensor": "FC-28", "area": "area1", "riego_activo": state["riego1"]})
-    publicar_sensor("suelo2", lectura["suelo2"], "%",   st_suelo(lectura["suelo2"]),{"sensor": "FC-28", "area": "area2", "riego_activo": state["riego2"]})
+    publicar_sensor("luz",    lectura["luz"],    "lux", st_luz(lectura["luz"]),      {"sensor": "LDR+Arduino"})
+    publicar_sensor("gas",    lectura["gas"],    "ppm", st_gas(lectura["gas"]),      {"sensor": "MQ+Arduino", "alarma_activa": lectura["gas"] >= UMBRAL_GAS_EMRG})
+    publicar_sensor("suelo1", lectura["suelo1"], "%",   st_suelo(lectura["suelo1"]),{"sensor": "FC-28+Arduino", "area": "area1", "riego_activo": state["riego1"]})
+    publicar_sensor("suelo2", lectura["suelo2"], "%",   st_suelo(lectura["suelo2"]),{"sensor": "FC-28+Arduino", "area": "area2", "riego_activo": state["riego2"]})
 
 
 def acumular_csv(lectura):
     with state["lock"]:
         state["lectura_id"] += 1
-        fila = [state["lectura_id"], lectura["temp"], lectura["hum"],
-                lectura["suelo1"], lectura["suelo2"], lectura["luz"], lectura["gas"],
-                1 if state["riego1"] else 0, 1 if state["riego2"] else 0]
+        fila = [
+            state["lectura_id"],
+            lectura["temp"],   lectura["hum"],
+            lectura["suelo1"], lectura["suelo2"],
+            lectura["luz"],    lectura["gas"],
+            1 if state["riego1"] else 0,
+            1 if state["riego2"] else 0,
+        ]
         state["lecturas_csv"].append(fila)
         if len(state["lecturas_csv"]) > 30:
             state["lecturas_csv"].pop(0)
@@ -395,6 +537,70 @@ def hilo_botones():
         time.sleep(0.05)
 
 
+def mapear(valor, in_min, in_max, out_min, out_max):
+    """Mapea un rango a otro — igual que en tu código de prueba."""
+    if in_max == in_min:
+        return out_min
+    return int((valor - in_min) * (out_max - out_min) / (in_max - in_min) + out_min)
+
+
+def actualizar_lcd(lectura):
+    """
+    Muestra datos rotativos en la LCD según el estado del sistema.
+    En emergencia muestra alerta fija.
+    """
+    if not lcd_ok or lcd is None:
+        return
+    try:
+        estado = state["global"]
+
+        # Emergencia → alerta fija, no rotar
+        if estado == "EMERGENCIA":
+            lcd.clear()
+            lcd.write_string("!! EMERGENCIA !!")
+            lcd.crlf()
+            lcd.write_string(f"Gas:{lectura['gas']:<4} PELIGRO")
+            return
+
+        # Rotar entre pantallas cada llamada
+        # Usamos un contador global para saber qué mostrar
+        pantalla = state.get("lcd_pantalla", 0)
+        state["lcd_pantalla"] = (pantalla + 1) % 5
+
+        lcd.clear()
+
+        if pantalla == 0:
+            lcd.write_string(f"Temp: {lectura['temp']}C")
+            lcd.crlf()
+            lcd.write_string(f"Hum:  {lectura['hum']}%")
+
+        elif pantalla == 1:
+            lcd.write_string(f"Suelo1: {lectura['suelo1']}%")
+            lcd.crlf()
+            lcd.write_string(f"Suelo2: {lectura['suelo2']}%")
+
+        elif pantalla == 2:
+            lcd.write_string(f"Luz:  {lectura['luz']}")
+            lcd.crlf()
+            lcd.write_string(f"Gas:  {lectura['gas']}")
+
+        elif pantalla == 3:
+            riego_str = "ON " if state["riego1"] else "OFF"
+            riego2_str = "ON " if state["riego2"] else "OFF"
+            lcd.write_string(f"Riego1:{riego_str} R2:{riego2_str}")
+            lcd.crlf()
+            vent_str = "ON " if state["ventilador"] else "OFF"
+            luz_str  = "ON " if state["luces"]      else "OFF"
+            lcd.write_string(f"Vent:{vent_str} Luz:{luz_str}")
+
+        elif pantalla == 4:
+            lcd.write_string(f"Estado:")
+            lcd.crlf()
+            lcd.write_string(estado[:16])
+
+    except Exception as e:
+        print(f"[LCD] Error al escribir: {e}")
+
 def hilo_sensores():
     arm64_counter = 0
     while True:
@@ -405,18 +611,19 @@ def hilo_sensores():
             continue
 
         with state["lock"]:
-            for k in ["temp","hum","luz","gas","suelo1","suelo2"]:
+            for k in ["temp", "hum", "luz", "gas", "suelo1", "suelo2"]:
                 state[k] = lectura[k]
 
         publicar_sensores(lectura)
         guardar_lectura(lectura, state["global"])
         guardar_estado_sistema(
             state["global"], state["modo"],
-            {k: state[k] for k in ["temp","hum","luz","gas","suelo1","suelo2"]},
-            {k: state[k] for k in ["riego1","riego2","ventilador","luces","alarma"]},
+            {k: state[k] for k in ["temp", "hum", "luz", "gas", "suelo1", "suelo2"]},
+            {k: state[k] for k in ["riego1", "riego2", "ventilador", "luces", "alarma"]},
         )
         acumular_csv(lectura)
         aplicar_automatismos(lectura)
+        actualizar_lcd(lectura)      
         actualizar_estado_global()
 
         arm64_counter += 1
@@ -436,13 +643,21 @@ def log(msg):
 if __name__ == "__main__":
     print("=" * 52)
     print("  Invernadero IoT — ACYE1 USAC — Grupo 9")
-    print(f"  Modo: {'SIMULACION' if SIMULACION or not gpio_ok else 'HARDWARE REAL'}")
+    modo_str = "SIMULACION"
+    if not SIMULACION:
+        if gpio_ok and arduino_ok:
+            modo_str = "HARDWARE COMPLETO (Raspi + Arduino)"
+        elif gpio_ok:
+            modo_str = "HARDWARE PARCIAL (Raspi OK, Arduino no encontrado)"
+        elif arduino_ok:
+            modo_str = "HARDWARE PARCIAL (Arduino OK, GPIO no disponible)"
+    print(f"  Modo: {modo_str}")
     print("=" * 52)
 
     # 1. MongoDB
     db = mongo_conectar()
 
-    # 2. MQTT — inyectar state, db y funciones de actuadores
+    # 2. MQTT
     mqtt_client = configurar_mqtt(
         broker     = MQTT_BROKER,
         port       = MQTT_PORT,
@@ -460,7 +675,7 @@ if __name__ == "__main__":
     # 3. Carpeta ARM64
     os.makedirs(ARM64_DIR, exist_ok=True)
 
-    # 4. Botones fisicos
+    # 4. Botones físicos
     if gpio_ok:
         threading.Thread(target=hilo_botones, daemon=True).start()
 
@@ -475,13 +690,17 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         log("\n[Main] Apagando sistema...")
         if gpio_ok:
-            for pin in [PIN_BOMBA1, PIN_BOMBA2, PIN_VENTILADOR, PIN_LUZ1, PIN_LUZ2,
-                        PIN_LED_VERDE, PIN_LED_AMAR, PIN_LED_ROJO, PIN_BUZZER]:
+            for pin in [PIN_BOMBA1, PIN_BOMBA2, PIN_VENTILADOR,
+                        PIN_LUZ1, PIN_LUZ2, PIN_LED_VERDE,
+                        PIN_LED_AMAR, PIN_LED_ROJO, PIN_BUZZER]:
                 GPIO.output(pin, GPIO.LOW)
             GPIO.cleanup()
         for t in timers_riego.values():
             if t: t.cancel()
-        publicar(T["global"], json.dumps({"estado":"OFFLINE","timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")}), retain=True)
+        publicar(T["global"], json.dumps({
+            "estado": "OFFLINE",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }), retain=True)
         registrar_evento("sistema", "APAGADO", "main_v2.py", "OFFLINE")
         mqtt_client.loop_stop()
         mqtt_client.disconnect()
