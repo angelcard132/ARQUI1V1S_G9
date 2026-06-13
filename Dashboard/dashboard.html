@@ -572,9 +572,33 @@
       <!--  ARM64 + Eventos  -->
       <div class="two-col" id="arm64">
         <div class="panel">
-          <div class="panel-header">
-            <h2><i class="ti ti-cpu"></i> Análisis ARM64</h2>
-            <span class="ph-right" id="arm-var">Variable: TEMP · 30 datos</span>
+          <div class="panel">
+          <div class="panel-header" style="flex-direction: column; align-items: flex-start; gap: 12px;">
+            <div style="display: flex; width: 100%; justify-content: space-between; align-items: center;">
+              <h2><i class="ti ti-cpu"></i> Análisis ARM64</h2>
+              <span class="ph-right" id="arm-var">Variable: TEMP · 30 datos</span>
+            </div>
+            
+            <div style="display: flex; gap: 10px; width: 100%; align-items: center; background: var(--surface2); padding: 10px; border-radius: var(--radius-sm);">
+              <select id="arm-modulo" style="padding: 6px; border: 1px solid var(--border); border-radius: 4px; font-family: var(--font); flex: 1;">
+                <option value="modulo_1_media">1. Media Aritmética Ponderada</option>
+                <option value="modulo_2_varianza">2. Varianza y Desv. Estándar</option>
+                <option value="modulo_3_anomalias">3. Detección de Anomalías</option>
+                <option value="modulo_4_prediccion">4. Predicción Lineal</option>
+                <option value="modulo_5_tendencia">5. Tendencia Avanzada</option>
+              </select>
+              
+              <select id="arm-sensor" style="padding: 6px; border: 1px solid var(--border); border-radius: 4px; font-family: var(--font);">
+                <option value="TEMP">Temperatura</option>
+                <option value="HUM_AIRE">Humedad Aire</option>
+                <option value="HUM_SUELO_1">Suelo Área 1</option>
+                <option value="HUM_SUELO_2">Suelo Área 2</option>
+                <option value="LUZ">Luz</option>
+                <option value="GAS">Gas</option>
+              </select>
+              
+              <button class="ctrl-btn success" onclick="ejecutarARM64()" style="background: var(--green-bg);"><i class="ti ti-player-play"></i> Ejecutar</button>
+            </div>
           </div>
           <div class="panel-body">
             <div class="arm-grid">
@@ -1075,35 +1099,50 @@ function connectMQTT() {
 
     client.on('message', (topic, payload) => {
       const msg = payload.toString().trim();
-      const parts = topic.split('/');
-      const subtopic = parts.slice(1).join('/');
+      
+      // Forma segura de quitar la base del topic sin importar cuántas carpetas tenga
+      const subtopic = topic.replace(CFG.topicBase + '/', '');
 
-      // Sensores
-      const numVal = parseFloat(msg);
-      if (subtopic === 'sensores/temperatura')        updateSensor('temp',   numVal);
-      if (subtopic === 'sensores/humedad_ambiente')   updateSensor('hum',    numVal);
-      if (subtopic === 'sensores/luz')                updateSensor('luz',    numVal);
-      if (subtopic === 'sensores/gas')                updateSensor('gas',    numVal);
-      if (subtopic === 'sensores/humedad_suelo_area1') updateSensor('suelo1', numVal);
-      if (subtopic === 'sensores/humedad_suelo_area2') updateSensor('suelo2', numVal);
+      try {
+        // Convertimos el texto de Python a un objeto JSON de JavaScript
+        const data = JSON.parse(msg);
 
-      // Actuadores
-      if (subtopic === 'actuadores/riego_area1')  { STATE.riego1 = msg === 'ON'; updateRiegoUI(1); }
-      if (subtopic === 'actuadores/riego_area2')  { STATE.riego2 = msg === 'ON'; updateRiegoUI(2); }
-      if (subtopic === 'actuadores/ventilador')   { STATE.ventilador = msg === 'ON'; updateActuadoresUI(); }
-      if (subtopic === 'actuadores/luces')        { STATE.luces = msg === 'ON'; updateActuadoresUI(); }
-      if (subtopic === 'actuadores/alarma')       {
-        STATE.alarma = msg === 'ON';
-        setActIcon('ic-alarm','as-alarm', STATE.alarma, 'Activa','Silenciada','ic-red');
-        if (STATE.alarma) addEvent('Alarma activada', 'danger');
-      }
+        // --- SENSORES ---
+        if (subtopic.startsWith('sensores/')) {
+          const numVal = parseFloat(data.valor); // Extraemos la llave "valor" del JSON
+          
+          if (subtopic === 'sensores/temperatura')        updateSensor('temp',   numVal);
+          if (subtopic === 'sensores/humedad_ambiente')   updateSensor('hum',    numVal);
+          if (subtopic === 'sensores/luz')                updateSensor('luz',    numVal);
+          if (subtopic === 'sensores/gas')                updateSensor('gas',    numVal);
+          if (subtopic === 'sensores/humedad_suelo_area1') updateSensor('suelo1', numVal);
+          if (subtopic === 'sensores/humedad_suelo_area2') updateSensor('suelo2', numVal);
+        }
 
-      // Estado global
-      if (subtopic === 'estado/global') setGlobalState(msg);
+        // --- ACTUADORES ---
+        // Extraemos los booleanos que manda Python (data.bomba, data.activo, etc.)
+        if (subtopic === 'actuadores/riego_area1')  { STATE.riego1 = data.bomba; updateRiegoUI(1); }
+        if (subtopic === 'actuadores/riego_area2')  { STATE.riego2 = data.bomba; updateRiegoUI(2); }
+        if (subtopic === 'actuadores/ventilador')   { STATE.ventilador = data.activo; updateActuadoresUI(); }
+        if (subtopic === 'actuadores/luces')        { STATE.luces = data.activo; updateActuadoresUI(); }
+        if (subtopic === 'actuadores/alarma')       {
+          STATE.alarma = data.estado === "ON";
+          setActIcon('ic-alarm','as-alarm', STATE.alarma, 'Activa','Silenciada','ic-red');
+          if (STATE.alarma) addEvent('Alarma activada', 'danger');
+        }
 
-      // ARM64
-      if (subtopic.startsWith('arm64/')) {
-        try { updateARM64(JSON.parse(msg)); } catch(e) {}
+        // --- ESTADO GLOBAL ---
+        if (subtopic === 'estado/global') {
+          setGlobalState(data.estado);
+        }
+
+        // --- ARM64 ---
+        if (subtopic.startsWith('arm64/')) {
+          updateARM64(data);
+        }
+
+      } catch(e) {
+        console.error("Error parseando el JSON o actualizando UI:", e, msg);
       }
     });
 
@@ -1139,6 +1178,30 @@ function publishCmd(actuador, cmd) {
 connectMQTT();
 updateLCD();
 setGlobalState('NORMAL');
+
+/* Control ARM64 Remoto  */
+function ejecutarARM64() {
+  const modulo = document.getElementById('arm-modulo').value;
+  const sensor = document.getElementById('arm-sensor').value;
+  
+  const topic = CFG.topicBase + '/control/arm64';
+  const payload = JSON.stringify({ 
+    comando: 'EJECUTAR', 
+    modulo: modulo, 
+    sensor: sensor, 
+    ts: Date.now(), 
+    origen: 'dashboard' 
+  });
+  
+  if (STATE.mqtt && STATE.mqtt.connected) {
+    STATE.mqtt.publish(topic, payload);
+    showToast('Análisis solicitado: ' + modulo + ' sobre ' + sensor);
+    document.getElementById('arm-var').textContent = `Procesando: ${sensor}...`;
+    addEvent('Ejecución ARM64 solicitada: ' + modulo, 'ok');
+  } else {
+    showToast('Sin conexión MQTT');
+  }
+}
 </script>
 </body>
 </html>
