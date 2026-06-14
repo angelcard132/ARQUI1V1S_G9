@@ -446,7 +446,11 @@ def _escribir_csv():
             writer.writerow(CSV_HEADER)
             for i, fila in enumerate(ultimas, 1):
                 fila[0] = i
-                writer.writerow(fila)
+                fila_csv = [
+                    int(x) if isinstance(x, float) else x
+                    for x in fila
+                ]   
+                writer.writerow(fila_csv)
             writer.writerow(["$"])
         log(f"[CSV] lecturas.csv actualizado ({len(ultimas)} filas)")
     except Exception as e:

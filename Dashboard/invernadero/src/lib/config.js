@@ -29,7 +29,10 @@ export const TOPICS = {
   GLOBAL:  `${BASE}/estado/global`,
   REMOTO:  `${BASE}/control/remoto`,
   MANUAL:  `${BASE}/control/manual`,
-  ARM64:   `${BASE}/arm64`,
+
+  // ARM64
+  ARM64:         `${BASE}/arm64`,
+  ARM64_REQUEST: `${BASE}/arm64/request`,
 }
 
 export const THRESHOLDS = {

@@ -14,6 +14,7 @@ BASE = "invernadero/G9"
 
 TOPIC_REMOTO = f"{BASE}/control/remoto"
 TOPIC_MANUAL = f"{BASE}/control/manual"
+TOPIC_ARM64_REQUEST = f"{BASE}/arm64/request"
 
 # Topics de publicacion
 T = {
@@ -30,6 +31,7 @@ T = {
     "luces":      f"{BASE}/actuadores/luces",
     "alarma":     f"{BASE}/actuadores/alarma",
     "global":     f"{BASE}/estado/global",
+    "arm64_req":  f"{BASE}/arm64/request",
 }
 
 # Comandos validos por actuador
@@ -94,13 +96,14 @@ def publicar_estado_global(estado, modo, lecturas):
 
 
 def _on_connect(client, userdata, flags, rc, properties=None):
-    if rc == 0:
-        print(f"[MQTT] Conectado al broker")
-        client.subscribe(TOPIC_REMOTO, qos=1)
-        client.subscribe(TOPIC_MANUAL, qos=1)
-        print(f"[MQTT] Suscrito a control/remoto y control/manual")
-    else:
-        print(f"[MQTT] Error de conexion: {rc}")
+        if rc == 0:
+            print(f"[MQTT] Conectado al broker")
+            client.subscribe(TOPIC_REMOTO, qos=1)
+            client.subscribe(TOPIC_MANUAL, qos=1)
+            client.subscribe(TOPIC_ARM64_REQUEST, qos=1)   
+            print(f"[MQTT] Suscrito a control/remoto, control/manual y arm64/request")
+        else:
+            print(f"[MQTT] Error de conexion: {rc}")
 
 
 def _on_disconnect(client, userdata, rc, properties=None, reasonCode=None):
@@ -129,6 +132,27 @@ def _on_message(client, userdata, msg):
             cmd      = partes[1].strip().upper()
             _procesar_comando(actuador, cmd, "boton_fisico")
 
+    elif topic == TOPIC_ARM64_REQUEST:
+        try:
+                data    = json.loads(payload)
+                modulo  = data.get("modulo", "")
+                columna = data.get("columna", "")
+                origen  = data.get("origen", "dashboard")
+ 
+                print(f"[ARM64] Solicitud: {modulo} sobre columna {columna} ({origen})")
+ 
+                # Llamar al runner en un hilo para no bloquear MQTT
+                import threading
+                from arm64_runner import ejecutar_modulo_individual
+                from mongo_handler import guardar_arm64
+ 
+                threading.Thread(
+                    target=ejecutar_modulo_individual,
+                    args=(modulo, columna, publicar, guardar_arm64, print),
+                    daemon=True,
+                ).start()
+        except json.JSONDecodeError:
+                print(f"[ARM64] Payload no es JSON: {payload}")
 def _procesar_comando(actuador, cmd, origen):
 
 

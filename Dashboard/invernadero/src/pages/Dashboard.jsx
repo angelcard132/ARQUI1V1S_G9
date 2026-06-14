@@ -1,4 +1,5 @@
 import React from 'react'
+import Arm64Selector from '../components/Arm64Selector'
 import { useInvernadero } from '../context/InvernaderoContext'
 import { THRESHOLDS }     from '../lib/config'
 import {
@@ -318,48 +319,119 @@ export default function Dashboard() {
 
       {/* ARM64 + Eventos */}
       <div style={s.row2} id="arm64">
-        <Panel title="Analisis ARM64" icon="ti-cpu"
+       <Panel title="Analisis ARM64" icon="ti-cpu"
           right={<span style={{ fontSize: 10, color: '#8a9280', fontFamily: 'DM Mono,monospace' }}>5 modulos · lecturas.csv</span>}
         >
+
+          {/* Selector: modulo + columna + boton ejecutar */}
+          <Arm64Selector />
+
+          {/* Indicador de "ejecutando..." mientras llega la respuesta */}
+          {state.arm64Ejecutando && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: 11, color: '#b86b0a', marginBottom: 10,
+              fontFamily: 'DM Sans, system-ui, sans-serif',
+            }}>
+              <i className="ti ti-loader-2" style={{ fontSize: 13, animation: 'spin 1s linear infinite' }} />
+              Ejecutando {state.arm64Ejecutando.modulo} sobre columna {state.arm64Ejecutando.columna}...
+            </div>
+          )}
+
+          {/* Grid de 4 cards: modulos 1 al 4 */}
           <div style={s.row2}>
-            <ArmCard archivo="modulo_1_media.s" titulo="Media ponderada" ok={!!state.arm64.media}>
+
+            <ArmCard
+              archivo="modulo_1_media.s"
+              titulo="Media ponderada"
+              ok={!!state.arm64.media}
+              columna={state.arm64.media?.columna}
+            >
               <ArmFila label="Media"      value={state.arm64.media?.val}   color="#3a6b1a" />
               <ArmFila label="Suma X"     value={state.arm64.media?.sum} />
               <ArmFila label="Suma pesos" value={state.arm64.media?.pesos} />
             </ArmCard>
-            <ArmCard archivo="modulo_2_varianza.s" titulo="Varianza y desv. estandar" ok={!!state.arm64.varianza}>
-              <ArmFila label="Media"   value={state.arm64.varianza?.media} />
+
+            <ArmCard
+              archivo="modulo_2_varianza.s"
+              titulo="Varianza y desv. estandar"
+              ok={!!state.arm64.varianza}
+              columna={state.arm64.varianza?.columna}
+            >
+              <ArmFila label="Media"    value={state.arm64.varianza?.media} />
               <ArmFila label="Varianza" value={state.arm64.varianza?.varianza} />
               <ArmFila label="Desv. est." value={state.arm64.varianza?.desv} color="#3a6b1a" />
             </ArmCard>
-            <ArmCard archivo="modulo_3_anomalias.s" titulo="Deteccion de anomalias" ok={!!state.arm64.anomalias}>
-              <ArmFila label="Media"    value={state.arm64.anomalias?.media} />
+
+            <ArmCard
+              archivo="modulo_3_anomalias.s"
+              titulo="Deteccion de anomalias"
+              ok={!!state.arm64.anomalias}
+              columna={state.arm64.anomalias?.columna}
+            >
+              <ArmFila label="Media"     value={state.arm64.anomalias?.media} />
               <ArmFila label="Anomalias" value={state.arm64.anomalias?.cantidad} color="#b86b0a" />
-              <ArmFila label="Riesgo"   value={state.arm64.anomalias?.riesgo}
-                color={state.arm64.anomalias?.riesgo === 'HIGH' ? '#9b2020' : state.arm64.anomalias?.riesgo === 'MEDIUM' ? '#b86b0a' : '#3a6b1a'} />
+              <ArmFila
+                label="Riesgo"
+                value={state.arm64.anomalias?.riesgo}
+                color={
+                  state.arm64.anomalias?.riesgo === 'HIGH'   ? '#9b2020' :
+                  state.arm64.anomalias?.riesgo === 'MEDIUM' ? '#b86b0a' :
+                  '#3a6b1a'
+                }
+              />
             </ArmCard>
-            <ArmCard archivo="modulo_4_prediccion.s" titulo="Prediccion lineal" ok={!!state.arm64.prediccion}>
-              <ArmFila label="Inicial"    value={state.arm64.prediccion?.inicial} />
-              <ArmFila label="Final"      value={state.arm64.prediccion?.final} />
-              <ArmFila label="Siguiente"  value={state.arm64.prediccion?.siguiente} color="#3a6b1a" />
+
+            <ArmCard
+              archivo="modulo_4_prediccion.s"
+              titulo="Prediccion lineal"
+              ok={!!state.arm64.prediccion}
+              columna={state.arm64.prediccion?.columna}
+            >
+              <ArmFila label="Inicial"   value={state.arm64.prediccion?.inicial} />
+              <ArmFila label="Final"     value={state.arm64.prediccion?.final} />
+              <ArmFila label="Cambio"    value={state.arm64.prediccion?.cambio} />
+              <ArmFila label="Siguiente" value={state.arm64.prediccion?.siguiente} color="#3a6b1a" />
             </ArmCard>
+
           </div>
+
+          {/* Card 5: tendencia — ocupa todo el ancho */}
           <div style={{ marginTop: 10 }}>
-            <ArmCard archivo="modulo_5_tendencia.s" titulo="Tendencia acumulada avanzada" ok={!!state.arm64.tendencia}>
+            <ArmCard
+              archivo="modulo_5_tendencia.s"
+              titulo="Tendencia acumulada avanzada"
+              ok={!!state.arm64.tendencia}
+              columna={state.arm64.tendencia?.columna}
+            >
               {state.arm64.tendencia
                 ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <i className={`ti ${state.arm64.tendencia.trend === 'UP' ? 'ti-trending-up' : state.arm64.tendencia.trend === 'DOWN' ? 'ti-trending-down' : 'ti-minus'}`}
-                        style={{ fontSize: 22, color: state.arm64.tendencia.trend === 'UP' ? '#3a6b1a' : state.arm64.tendencia.trend === 'DOWN' ? '#9b2020' : '#8a9280' }} />
-                      <span style={{ fontFamily: 'Fraunces,Georgia,serif', fontSize: 20, fontWeight: 500, color: state.arm64.tendencia.trend === 'UP' ? '#3a6b1a' : '#9b2020' }}>
+                      <i
+                        className={`ti ${
+                          state.arm64.tendencia.trend === 'UP'   ? 'ti-trending-up' :
+                          state.arm64.tendencia.trend === 'DOWN' ? 'ti-trending-down' :
+                          'ti-minus'
+                        }`}
+                        style={{
+                          fontSize: 22,
+                          color: state.arm64.tendencia.trend === 'UP'   ? '#3a6b1a' :
+                                 state.arm64.tendencia.trend === 'DOWN' ? '#9b2020' :
+                                 '#8a9280',
+                        }}
+                      />
+                      <span style={{
+                        fontFamily: 'Fraunces,Georgia,serif', fontSize: 20, fontWeight: 500,
+                        color: state.arm64.tendencia.trend === 'UP' ? '#3a6b1a' : '#9b2020',
+                      }}>
                         {state.arm64.tendencia.trend}
                       </span>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <ArmFila label="Incrementos" value={state.arm64.tendencia.incrementos} />
-                      <ArmFila label="Decrementos" value={state.arm64.tendencia.decrementos} />
-                      <ArmFila label="Racha max"   value={state.arm64.tendencia.racha} />
+                      <ArmFila label="Incrementos"    value={state.arm64.tendencia.incrementos} />
+                      <ArmFila label="Decrementos"    value={state.arm64.tendencia.decrementos} />
+                      <ArmFila label="Racha max"      value={state.arm64.tendencia.racha} />
                       <ArmFila label="Dif. acumulada" value={state.arm64.tendencia.acum} />
                     </div>
                   </div>
@@ -368,6 +440,7 @@ export default function Dashboard() {
               }
             </ArmCard>
           </div>
+
         </Panel>
 
         <Panel title="Ultimos eventos" icon="ti-history" id="eventos">
