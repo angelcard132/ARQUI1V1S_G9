@@ -1,4 +1,5 @@
 //  Tendencia Acumulada Avanzada
+// Modulo 5: Hecho por Angel Jose Cardenas Pocon  | 202304063
 //    Lee la columna TEMP (col 1) de los 30 registros de lecturas.csv
 //    y calcula:
 //      1. Cantidad de incrementos  (X_i > X_(i-1))
@@ -7,7 +8,6 @@
 //      4. Racha máxima de decremento continuo  (MAX_DOWN_STREAK)
 //      5. Diferencia acumulada: DIF_ACUM = Σ(X_i - X_(i-1))  i=1..29
 //      6. Tendencia final: UP / DOWN / STABLE
-//
 //  Formulas
 //      DIF_i   = X_i - X_(i-1)
 //      DIF_ACUM = Σ DIF_i

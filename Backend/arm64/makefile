@@ -1,11 +1,6 @@
-# =============================================================
-#  Makefile — Invernadero Inteligente IoT  |  ACYE1  USAC
-#  Compila todos los módulos ARM64 individuales enlazados
-#  con la biblioteca común utils.s
-#
 #  Uso:
 #    make            → compila todo
-#    make modulo_5   → compila solo el módulo 5
+#    make modulo_5   → compila los modulos, cambiar para el modulo deseado
 #    make clean      → borra binarios y .o
 #    make run_all    → ejecuta los 5 módulos en orden
 #    make test_5     → compila y ejecuta solo el módulo 5
@@ -28,7 +23,7 @@ MODULES = modulo_1_media \
 
 .PHONY: all clean run_all test_5
 
-# ── Compilar todo ──────────────────────────────────────────
+#  Compilar todo 
 all: $(UTILS_OBJ) $(MODULES)
 
 # Compilar utils.o (una sola vez, compartido por todos)
@@ -41,14 +36,14 @@ $(UTILS_OBJ): $(UTILS_SRC)
 	$(AS) $(ASFLAGS) -o $@.o $<
 	$(LD) -o $@ $@.o $(UTILS_OBJ)
 
-# ── Limpiar ────────────────────────────────────────────────
+#  Limpiar 
 clean:
 	rm -f $(UTILS_OBJ)
 	rm -f $(addsuffix .o, $(MODULES))
 	rm -f $(MODULES)
 	rm -f resultado_*.txt
 
-# ── Ejecutar todos los módulos ─────────────────────────────
+#  Ejecutar todos los módulos 
 run_all: all
 	@echo ">>> Ejecutando módulo 1: Media ponderada"
 	./modulo_1_media
@@ -72,7 +67,7 @@ run_all: all
 	@echo "---"
 	@cat resultado_tendencia.txt  2>/dev/null || echo "(modulo_5 no disponible)"
 
-# ── Compilar y correr solo el módulo 5 ────────────────────
+#  Compilar y correr solo el módulo 5 
 test_5: $(UTILS_OBJ) modulo_5_tendencia
 	./modulo_5_tendencia
 	@echo ""

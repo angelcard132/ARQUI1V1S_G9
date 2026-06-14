@@ -1,4 +1,4 @@
-//  utils.s - Biblioteca comun ARM64/AArch64
+//  utils.s | Biblioteca comun ARM64/AArch64
 //
 //  Funciones que ofrece esta biblioteca:
 //    open_csv        - abre lecturas.csv y retorna fd en x0
