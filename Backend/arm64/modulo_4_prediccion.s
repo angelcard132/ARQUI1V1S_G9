@@ -1,409 +1,419 @@
-/*---------------------------------------------------------------------------------
-Tulio Jafeth Pirir Schuman || 201700698   
-Rutina 4: Predicción lineal simple
-Este módulo realiza una predicción predictiva basada en datos de  enteras utilizando
-lecturas extraídas de un archivo CSV para un entorno de monitoreo automatizado.
----------------------------------------------------------------------------------*/
+// =====================================================================
+//  modulo_4_prediccion.s
+//  Astrid Vannesa Kim Ortiz
+    //Carnet 202300685
+//
+//   la Formula
+
+//    DIF             = XFINAL - XINICIAL
+//    PROMEDIO_CAMBIO = DIF / (N - 1)         (N = 30)
+//    PREDICCION      = XFINAL + PROMEDIO_CAMBIO
+//
+
+
+//    - AVG_CHANGE y NEXT_VALUE pueden tener decimales, por lo que
+//      se calculan en formato fixed point con 2 decimales
+//      se multiplica por 100 antes de dividir y al imprimir se
+//      separa la parte entera de la parte decimal 
+
+
+
 
 .section .data
-.align 2
-msg_inicio:
-    .asciz "--- INICIANDO MODULO 4 PREDICCION LINEAL SIMPLE ---\n"
-    len_inicio = . - msg_inicio - 1         
 
-output_filename:                                
-    .asciz "resultado_prediccion.txt"              
+out_filename:
+    .asciz "resultado_prediccion.txt"
 
-msg_fin:
-    .asciz "\n--- FIN DEL ARCHIVO (Reporte guardado en resultado_prediccion.txt) ---\n"
-    len_fin = . - msg_fin - 1                
-
-// --- CONSTANTES DE FORMATEO PARA EL REPORTE DE SALIDA ---
-lbl_MODULE:
+// Etiquetas de salida (formato MODULE=KEY\n / KEY=VALUE\n)
+str_module:
     .asciz "MODULE=PREDICTION\n"
-    len_MODULE = . - lbl_MODULE - 1
+len_module = . - str_module - 1
 
-lbl_INITIAL_VALUE:
+str_initial:
     .asciz "INITIAL_VALUE="
-    len_INITIAL_VALUE = . - lbl_INITIAL_VALUE - 1
+len_initial = . - str_initial - 1
 
-lbl_FINAL_VALUE:
+str_final:
     .asciz "FINAL_VALUE="
-    len_FINAL_VALUE = . - lbl_FINAL_VALUE - 1
- 
-lbl_TOTAL_DIFF:
+len_final = . - str_final - 1
+
+str_diff:
     .asciz "TOTAL_DIFF="
-    len_TOTAL_DIFF = . - lbl_TOTAL_DIFF - 1
+len_diff = . - str_diff - 1
 
-lbl_AVG_CHANGE:
+str_avg:
     .asciz "AVG_CHANGE="
-    len_AVG_CHANGE = . - lbl_AVG_CHANGE - 1
+len_avg = . - str_avg - 1
 
-lbl_NEXT_VALUE:
+str_next:
     .asciz "NEXT_VALUE="
-    len_NEXT_VALUE = . - lbl_NEXT_VALUE - 1
+len_next = . - str_next - 1
 
-msg_columna:
-    .asciz "Columna seleccionada para operar: "
-    len_columna = . - msg_columna - 1
+dot_char:
+    .asciz "."
 
-msg_no_arg:
-    .ascii "Error: Debe enviar el numero de columna desde el backend\n"
-    msg_no_arg_len = . - msg_no_arg
 
-// Declaración limpia en formato byte para garantizar saltos de línea puros en QEMU
-.align 2
-txt_newline:    
-    .byte 10
 
 
 .section .bss
-.align 4
-buffer_columna:
-    .skip 16    // Buffer temporal para conversiones numéricas a ASCII
+
+// Buffer temporal para extraer cada valor de columna como texto
+col_buf:
+    .space 32
+
+// Buffer temporal para convertir enteros a texto
+ascii_buf:
+    .space 32
+
+
 
 
 .section .text
 .global _start
 
+// ---------------------------------------------------------------
+// Constantes del modulo
+//   N        = 30  (cantidad total de registros)
+//   COLUMNA  = 1   (columna TEMP en lecturas.csv)
+
+.equ N, 30
+.equ COLUMNA, 1
+.equ ESCALA, 100         // factor para 2 decimales fijos
+
+
 _start:
-        # -----------------------------------------------------------------
-        # EXTRACCIÓN Y VALIDACIÓN DE ARGUMENTOS DESDE EL STACK
-        # -----------------------------------------------------------------
-        ldr     x0, [sp]                    // Carga argc (Cantidad de argumentos) desde backend
-
-        cmp     x0, #2                      // Valida la existencia del argumento requerido
-        blt     no_argumento                
-
-        ldr     x0, [sp, #16]               // Carga dirección base de argv[1]
-        bl      parse_int                   // Convierte la entrada ASCII a entero
-        mov     x20, x0                     // x20 = ID de Columna objetivo (Rango: 1 a 8)
-
-        # -- VERIFICACIONES DE CONTROLES DE RANGO --
-        cmp     x20, #1                     
-        blt     exit_error                  
-        cmp     x20, #8                     
-        bgt     exit_error                  
-
-        # -----------------------------------------------------------------
-        # INICIALIZACIÓN DE ENTORNO 
-        # -----------------------------------------------------------------
-        mov     x0, #1                      // x1 = Standard Output (Consola)
-        adr     x1, msg_inicio              
-        mov     x2, #len_inicio             
-        bl      write_result                
-
-        # -----------------------------------------------------------------
-        # IMPRESIÓN EN CONSOLA DE LA COLUMNA SELECCIONADA
-        # -----------------------------------------------------------------
-        mov     x0, #1                      
-        adr     x1, msg_columna             
-        mov     x2, #len_columna            
-        bl      write_result                
-
-        mov     x0, x20                     // Pasa el entero de la columna para conversión
-        adr     x1, buffer_columna          
-        bl      int_to_ascii                
-
-        mov     x2, x0                      // x0 retorna la longitud de la cadena
-        mov     x0, #1                      
-        adr     x1, buffer_columna          
-        bl      write_result                
-        bl      newline                     
-
-        # -----------------------------------------------------------------
-        # LECTURA DE   CSV (lecturas.csv)
-        # -----------------------------------------------------------------
-        bl      read_csv                    
-        cmp     x0, #0                      // Validar descriptor lógico del archivo cargado
-        blt     exit_error                  
-
-        # -----------------------------------------------------------------
-        # PROCESAMIENTO Y EXTRACCIÓN DE DATOS DEL  CSV LOS SE GUARDAN EN EL STACK
-        # -----------------------------------------------------------------
-        
-        // --- EXTRAER EL PRIMER DATO (Fila 0 - VALOR_INICIAL ) ---
-        mov     x0, #0                      // Fila = 0
-        mov     x1, x20                     // Columna mapeada desde x20
-        adr     x2, buffer_columna          
-        mov     x3, #16                     
-        bl      get_column                  
-        
-        cmp     x0, #0                      // Validar éxito de la extracción de celda
-        beq     error_extraccion            
-        
-        adr     x0, buffer_columna         // Se utliza el buffer_columna para guardar valore
-        bl      parse_int                   // pasa a entero
-        mov     x22, x0                     // x22 = VALOR INICIAL
-
-        // --- EXTRAER EL ÚLTIMO DATO (Fila 29 - VALOR_FINAL ) ---
-        mov     x0, #29                     // Fila = 29
-        mov     x1, x20                     
-        adr     x2, buffer_columna          
-        mov     x3, #16                     
-        bl      get_column                  
-        
-        cmp     x0, #0                      
-        beq     error_extraccion            
-        
-        adr     x0, buffer_columna          
-        bl      parse_int                   
-        mov     x25, x0                     // x25 = VALOR FINAL
-
-        # -----------------------------------------------------------------
-        # CÁLCULOS MATEMÁTICOS DE TENDENCIA LINEAL (SOLO ENTEROS)
-        # -----------------------------------------------------------------
-        //  DIFERENCIA TOTAL = XFINAL - XINICIAL
-        sub     x26, x25, x22               // x26 = DIF
-
-        // PROMEDIO_CAMBIO = DIFERENCIA / (N - 1) -> N=DATOS RESIVIDOS SON 30 --> 29 pasos
-        mov     x9, #29                     
-        sdiv    x27, x26, x9                // x27 = PROMEDIO_CAMBIO
-
-        //PREDICCION  = XFINAL + PROMEDIO_CAMBIO
-        add     x28, x25, x27               // x28 = PREDICCION (Día 31)
-
-        # -----------------------------------------------------------------
-        # SÉCURIZACIÓN Y APERTURA DE DESCRIPTOR DE SALIDA (.TXT)
-        # -----------------------------------------------------------------
-        adr     x0, output_filename         
-        bl      open_output                  // CON UTILS.S ABRIR ARCHIVO .REXT
-        cmp     x0, #0                      
-        blt     exit_error                  
-        mov     x24, x0                     // x24 = Guardar File Descriptor asignado
-
-        # -----------------------------------------------------------------
-        # GENERACIÓN SISTEMÁTICA DEL REPORTE (CONSOLA Y ARCHIVO)
-        # -----------------------------------------------------------------
-
-        // --- FILA 1: IDENTIFICACIÓN DE MÓDULO ---
-        mov     x0, #1             // x0 = 1 (Descriptor de archivo para stdout / pantalla)         
-        adr     x1, lbl_MODULE      // direccion de memoria para texto
-        mov     x2, #len_MODULE     //logitud del la cadena
-        bl      write_result        // Llama a la función para imprimir en pantalla
-
-        mov     x0, x24                //x0 = Descriptor de archivo guardado en x24  (el . txt)     
-        adr     x1, lbl_MODULE
-        mov     x2, #len_MODULE
-        bl      write_result            // Llama a la función para imprimir en el archivo
 
 
-        // --- FILA 2: INITIAL_VALUE ---
-        // Etiqueta
-        mov     x0, #1                      
-        adr     x1, lbl_INITIAL_VALUE   
-        mov     x2, #len_INITIAL_VALUE   
-        bl      write_result
-
-        mov     x0, x24     
-        adr     x1, lbl_INITIAL_VALUE   
-        mov     x2, #len_INITIAL_VALUE   
-        bl      write_result
-        
-        
-    // Conversión de entero a caracteres ASCII
-
-        // Registro
-        mov     x0, x22                         // x0 = El valor numérico a convertir (guardado en x22) valor inicial
-        adr     x1, buffer_columna              // x1 = Puntero al buffer de memoria donde se guardará el texto resultant
-        bl      int_to_ascii                    // Llama a la subrutina
-         // Primera impresión del número  (Consola)
-        mov     x2, x0
-        mov     x0, #1      
-        adr     x1, buffer_columna      
-        bl      write_result
-        // Segunda impresión del número: Duplicar salida (Archivo)
-        mov     x0, x24     
-        adr     x1, buffer_columna      
-        bl      write_result
-        
-        
-        // Salto de Línea Múltiple vía Subrutina
-        bl      salto
 
 
-        // --- FILA 3: FINAL_VALUE ---
-        // Etiqueta
-        mov     x0, #1      
-        adr     x1, lbl_FINAL_VALUE     
-        mov     x2, #len_FINAL_VALUE     
-        bl      write_result
-
-        mov     x0, x24     
-        adr     x1, lbl_FINAL_VALUE     
-        mov     x2, #len_FINAL_VALUE     
-        bl      write_result
-        
-        
-        // Registro
-        mov     x0, x25                     // x0 = El valor numérico a convertir (guardado en x25) valor final
-        adr     x1, buffer_columna      
-        bl      int_to_ascii              
-        mov     x2, x0
-
-        //IMPRECION CONSOLA
-        mov     x0, #1      
-        adr     x1, buffer_columna      
-        bl      write_result
-        //IMPRECION ARCHIVO ,TXT
-        mov     x0, x24     
-        adr     x1, buffer_columna      
-        bl      write_result
-
-        bl      salto
-
-        
-        // --- FILA 4: TOTAL_DIFF ---
-        // Etiqueta
-        mov     x0, #1
-        adr     x1, lbl_TOTAL_DIFF
-        mov     x2, #len_TOTAL_DIFF
-        bl      write_result
-
-        mov     x0, x24
-        adr     x1, lbl_TOTAL_DIFF
-        mov     x2, #len_TOTAL_DIFF
-        bl      write_result
-        
-        // Registro
-        mov     x0, x26                     //X26 = DIFERENCIA 
-        adr     x1, buffer_columna
-        bl      int_to_ascii
-        
-        //IMPRESION EN CONSOLA
-        mov     x2, x0
-        mov     x0, #1
-        adr     x1, buffer_columna
-        bl write_result
-        //IMPRESION ARCHIVO.TXT
-        mov     x0, x24
-        adr     x1, buffer_columna
-        bl      write_result
-        
-        bl      salto
+    // 1) Leer todo el archivo lecturas.csv a memoria
+    // -----------------------------------------------------------
+    bl read_csv
+    cmp x0, #0
+    blt error_exit
 
 
-        // --- FILA 5: AVG_CHANGE ---
-        // Etiqueta
-        mov     x0, #1
-        adr     x1, lbl_AVG_CHANGE
-        mov     x2, #len_AVG_CHANGE
-        bl      write_result
 
 
-        mov     x0, x24
-        adr     x1, lbl_AVG_CHANGE     
-        mov     x2, #len_AVG_CHANGE    
-        bl      write_result
-        // Registro
-        mov     x0, x27                 //X27 = PROMEDIO
-        adr     x1, buffer_columna    
-        bl      int_to_ascii              
-        //IMPRESION EN LA CONSOLA        
-        mov     x2, x0
-        mov     x0, #1      
-        adr     x1, buffer_columna      
-        bl      write_result
-        // IMPORESION EN ARCHIVO
-        mov     x0, x24     
-        adr     x1, buffer_columna      
-        bl      write_result
 
-        bl      salto
+    // 2) Obtener XINICIAL = valor de la columna en la fila 0
+    // -----------------------------------------------------------
+
+    mov x0, #0                  // fila 0 (primer registro)
+    mov x1, #COLUMNA
+    adr x2, col_buf      //aqui voy a guardar el valor de la columna
+    mov x3, #32
+    bl get_column 		//devuelve la cantidad de caracteres que copio
+    cmp x0, #0
+    beq error_exit               // si la columna esta vacia, me dara error
+
+    adr x0, col_buf
+    bl parse_int
+    mov x21, x0                  // x21 = XINICIAL
 
 
-        // --- FILA 6: NEXT_VALUE (PREDICCIÓN FINALES) ---
-        // Etiqueta
-        mov     x0, #1      
-        adr     x1, lbl_NEXT_VALUE      
-        mov     x2, #len_NEXT_VALUE      
-        bl      write_result
 
-        mov     x0, x24     
-        adr     x1, lbl_NEXT_VALUE      
-        mov     x2, #len_NEXT_VALUE      
-        bl       write_result
 
-        // Registro
-        mov     x0, x28                     //X28 PREDICCION
-        adr     x1, buffer_columna      
-        bl      int_to_ascii
 
-        //IMPRESION EN CONSOLA              
-        mov     x2, x0
-        mov     x0, #1      
-        adr     x1, buffer_columna      
-        bl      write_result
-        //IMPRESION EN ARCHIVO 
-        mov     x0, x24    
-        adr     x1, buffer_columna      
-        bl      write_result
 
-        bl      salto
-        // CERRAR ARCHIVO.TXT Y FINALIZACION DEL PROCESO 
-        b       finalizar_proceso
-# -----------------------------------------------------------------
-# D FINALIZACION DEL PORCESO 
-# -----------------------------------------------------------------
+    // 3) Obtener XFINAL = valor de la columna en la fila 29
+    // -----------------------------------------------------------
+    mov x0, #(N - 1)             // fila 29 (ultimo registro) se le resta 1 porque empieza de 0
+    mov x1, #COLUMNA
+    adr x2, col_buf
+    mov x3, #32             // espacio del buffer
+    bl get_column
+    cmp x0, #0
+    beq error_exit               // si la columna esta vacia
 
-finalizar_proceso:
-    // 8. Cerrar el archivo de texto de forma segura
-    mov     x0, x24
-    bl      close_fd
+    adr x0, col_buf
+    bl parse_int
+    mov x22, x0                  // x22 = XFINAL
 
-    // 9. Mensaje de cierre final en la consola
-    mov     x0, #1
-    adr     x1, msg_fin
-    mov     x2, #len_fin
-    bl      write_result
-    
-    mov     x0, #0                      // Éxito
-    b       finalizar
-# -----------------------------------------------------------------
-# SUBRUTINAS COMPACTAS DE CONTROL DE FLUJO
-# -----------------------------------------------------------------
 
-/* Subrutina: salto
-  Aplica un salto de línea síncrono (Consola y Archivo).
-  Optimización: Tail-Call mediante registro x19 para preservar x30 sin tocar el Stack.
-*/
-salto:
-        mov     x19, x30                    // Resguarda dirección de retorno del flujo principal
-        
-        mov     x0, #1                      // Destino: Consola
-        adr     x1, txt_newline
-        mov     x2, #1
-        bl      write_result                // Ejecuta e intercepta x30 interno
 
-        mov     x0, x24                     // Destino: Archivo Descriptor (.txt)
-        adr     x1, txt_newline
-        mov     x2, #1
-        
-        mov     x30, x19                    // Restaura x30 original antes del desenlace
-        b       write_result                // Salto incondicional final: delega el 'ret' a utils.o
 
-# -----------------------------------------------------------------
-# MANEJADORES DE EXCEPCIONES Y DESCONEXIÓN DEL SISTEMA (SYSCALLS)
-# -----------------------------------------------------------------
-no_argumento:
-        mov     x0, #1                      
-        adr     x1, msg_no_arg              
-        mov     x2, #msg_no_arg_len         
-        mov     x8, #64                     // Syscall 64 = sys_write
-        svc     #0                          
-        b       exit_error                  
 
-exit_error:
-        mov     x0, #1                      // Status code = 1 (Error general)
-        mov     x8, #93                     // Syscall 93 = sys_exit
-        svc     #0                          
+    // 4) DIF = XFINAL - XINICIAL
+    // -----------------------------------------------------------
+    sub x23, x22, x21            // x23 = DIF tambiénnn puede ser negativo
 
-error_extraccion:
-        mov     x0, #1                      
-        mov     x8, #93                     
-        svc     #0   
 
-finalizar:
-        mov     x0, #0                      // Status code = 0 (Salida Exitosa)
-        mov     x8, #93                     
-        svc     #0
+
+    // -----------------------------------------------------------
+    // 5) PROMEDIO_CAMBIO = DIF / (N - 1)
+    //    Calculado en fixed-point: AVG_SCALED = (DIF * 100) / 29
+    //    AVG_SCALED esta escalado x100
+    // -----------------------------------------------------------
+
+
+    mov x9, #ESCALA
+    mul x10, x23, x9             // x10 = DIF * 100
+    mov x11, #(N - 1)            // x11 = 29
+    sdiv x24, x10, x11           // x24 = AVG_SCALED = (DIF*100)/29
+
+
+
+
+
+    // -----------------------------------------------------------
+    // 6) PREDICCION = XFINAL + PROMEDIO_CAMBIO
+    //    En fixed-point: NEXT_SCALED = XFINAL*100 + AVG_SCALED
+    // -----------------------------------------------------------
+    mul x12, x22, x9             // x12 = XFINAL * 100
+    add x25, x12, x24             // x25 = NEXT_SCALED (escalado x100)
+
+
+
+
+
+
+    // 7) Abrir archivo de salida
+    // -----------------------------------------------------------
+    adr x0, out_filename
+    bl open_output
+    cmp x0, #0
+    blt error_exit
+    mov x19, x0                  // x19 = fd de salida
+
+
+
+
+
+    // 8) Escribir MODULE=PREDICTION
+    // -----------------------------------------------------------
+    mov x0, x19
+    adr x1, str_module
+    mov x2, #len_module
+    bl write_result
+
+
+
+
+
+
+    // 9) Escribir INITIAL_VALUE=<XINICIAL>
+    // -----------------------------------------------------------
+    mov x0, x19			//el fd del archivo abierto
+    adr x1, str_initial        //donnde esta el valor INITIAL_VALUE
+    mov x2, #len_initial	//el tamanio del archivo
+    bl write_result
+
+    mov x0, x21
+    adr x1, ascii_buf		//aqui se guardara el valor ascii
+    bl int_to_ascii
+    mov x20, x0                  // x20 = longitud
+    mov x0, x19
+    adr x1, ascii_buf
+    mov x2, x20
+    bl write_result
+
+    mov x0, x19
+    bl newline
+
+
+
+
+
+
+
+    // 10) Escribir FINAL_VALUE=<XFINAL>
+    // -----------------------------------------------------------
+    mov x0, x19
+    adr x1, str_final
+    mov x2, #len_final
+    bl write_result
+
+    mov x0, x22
+    adr x1, ascii_buf
+    bl int_to_ascii
+    mov x20, x0
+
+    mov x0, x19
+    adr x1, ascii_buf
+    mov x2, x20
+    bl write_result
+
+    mov x0, x19
+    bl newline
+
+
+
+
+
+
+
+
+    // -----------------------------------------------------------
+    // 11) Escribir TOTAL_DIFF=<DIF>
+    // -----------------------------------------------------------
+    mov x0, x19
+    adr x1, str_diff
+    mov x2, #len_diff
+    bl write_result
+
+    mov x0, x23
+    adr x1, ascii_buf
+    bl int_to_ascii
+    mov x20, x0
+
+    mov x0, x19
+    adr x1, ascii_buf
+    mov x2, x20
+    bl write_result
+
+    mov x0, x19
+    bl newline
+
+
+
+
+    // 12) Escribir AVG_CHANGE=<entero>.<decimal>
+    //     a partir de x24 = AVG_SCALED (escalado x100)
+    // -----------------------------------------------------------
+    mov x0, x19
+    adr x1, str_avg
+    mov x2, #len_avg
+    bl write_result
+
+    mov x0, x24
+    bl write_fixed_point
+
+    mov x0, x19
+    bl newline
+
+
+
+
+
+
+
+    // 13) Escribir NEXT_VALUE=<entero>.<decimal>
+    //     a partir de x25 = NEXT_SCALED escalado x100
+    // -----------------------------------------------------------
+    mov x0, x19
+    adr x1, str_next
+    mov x2, #len_next
+    bl write_result
+
+    mov x0, x25
+    bl write_fixed_point
+
+    mov x0, x19
+    bl newline
+
+
+
+
+
+    // -----------------------------------------------------------
+    // 14) Cerrar archivo y salir
+    // -----------------------------------------------------------
+    mov x0, x19
+    bl close_fd
+
+    mov x0, #0
+    mov x8, #93                  // syscall exit
+    svc #0
+
+error_exit:
+    mov x0, #1
+    mov x8, #93
+    svc #0
+
+
+
+
+
+
+
+// write_fixed_point
+//   Escribe un valor escalado x100 como "ENTERO.DD" en el fd x19
+//   (subrutina propia del modulo, usa el fd  guardado en x19).
+//
+//   Parametros:
+//     x0 = valor escalado x100 y puede ser negativo
+//
+//   Ejemplo: x0 = 3420  ->  escribe "34.20"
+//
+//   Usa registros callee-saved x26, x27, x28 los guarda y restaura
+// =====================================================================
+
+write_fixed_point:
+    stp x29, x30, [sp, #-48]!
+    mov x29, sp
+    stp x26, x27, [sp, #16]
+    str x28, [sp, #32]
+
+    mov x26, x0                  // x26 = valor escalado (con signo)
+
+    // Determinar signo y trabajar con valor absoluto
+    mov x27, #0                  // x27 = flag negativo
+    cmp x26, #0
+    bge wfp_abs_ok
+    neg x26, x26
+    mov x27, #1
+
+wfp_abs_ok:
+    // parte entera = valor_abs / 100
+    mov x9, #ESCALA
+    udiv x28, x26, x9             // x28 = parte entera
+
+    // Si el numero original era negativo, escribir '-' antes
+    cbz x27, wfp_write_int
+    mov x0, x19
+    adr x1, neg_sign
+    mov x2, #1
+    bl write_result
+
+wfp_write_int:
+    // Escribir parte entera
+    mov x0, x28
+    adr x1, ascii_buf
+    bl int_to_ascii
+    mov x9, x0
+    mov x0, x19
+    adr x1, ascii_buf
+    mov x2, x9
+    bl write_result
+
+    // Escribir el punto decimal
+    mov x0, x19
+    adr x1, dot_char
+    mov x2, #1
+    bl write_result
+
+    // parte decimal = valor_abs mod 100
+    mov x9, #ESCALA
+    udiv x10, x26, x9
+    msub x28, x10, x9, x26        // x28 = valor_abs - (parte_entera*100)
+
+    // Asegurar 2 digitos: si x28 < 10, escribir '0' primero
+    cmp x28, #10
+    bge wfp_write_dec
+    mov x0, x19
+    adr x1, zero_char
+    mov x2, #1
+    bl write_result
+
+wfp_write_dec:
+    mov x0, x28
+    adr x1, ascii_buf
+    bl int_to_ascii
+    mov x9, x0
+    mov x0, x19
+    adr x1, ascii_buf
+    mov x2, x9
+    bl write_result
+
+    ldr x28, [sp, #32]
+    ldp x26, x27, [sp, #16]
+    ldp x29, x30, [sp], #48
+    ret
+
+
+.section .data
+neg_sign:
+    .asciz "-"
+zero_char:
+    .asciz "0"
