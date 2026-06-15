@@ -1,6 +1,5 @@
 //  Oliverio Abraham Caal Artola 202303864
 
-
 .section .data
 
 //Columna objetivo dentro de lecturas.csv
