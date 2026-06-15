@@ -1,7 +1,12 @@
-// =====================================================================
+
 //  modulo_4_prediccion.s
 //  Astrid Vannesa Kim Ortiz
     //Carnet 202300685
+
+// Nota de control de versiones
+// Se actualizó la documentación del módulo debido a que una versión
+// previa fue subida accidentalmente con una configuración de Git
+// asociada a otro usuario del equipo.
 //
 //   la Formula
 
@@ -71,7 +76,9 @@ ascii_buf:
 .section .text
 .global _start
 
-// ---------------------------------------------------------------
+
+
+// <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
 // Constantes del modulo
 //   N        = 30  (cantidad total de registros)
 //   COLUMNA  = 1   (columna TEMP en lecturas.csv)
@@ -87,7 +94,7 @@ _start:
 
 
     // 1) Leer todo el archivo lecturas.csv a memoria
-    // -----------------------------------------------------------
+   // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     bl read_csv
     cmp x0, #0
     blt error_exit
@@ -97,7 +104,7 @@ _start:
 
 
     // 2) Obtener XINICIAL = valor de la columna en la fila 0
-    // -----------------------------------------------------------
+   // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
 
     mov x0, #0                  // fila 0 (primer registro)
     mov x1, #COLUMNA
@@ -117,7 +124,7 @@ _start:
 
 
     // 3) Obtener XFINAL = valor de la columna en la fila 29
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     mov x0, #(N - 1)             // fila 29 (ultimo registro) se le resta 1 porque empieza de 0
     mov x1, #COLUMNA
     adr x2, col_buf
@@ -135,16 +142,16 @@ _start:
 
 
     // 4) DIF = XFINAL - XINICIAL
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     sub x23, x22, x21            // x23 = DIF tambiénnn puede ser negativo
 
 
 
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     // 5) PROMEDIO_CAMBIO = DIF / (N - 1)
     //    Calculado en fixed-point: AVG_SCALED = (DIF * 100) / 29
     //    AVG_SCALED esta escalado x100
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
 
 
     mov x9, #ESCALA
@@ -156,10 +163,10 @@ _start:
 
 
 
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     // 6) PREDICCION = XFINAL + PROMEDIO_CAMBIO
     //    En fixed-point: NEXT_SCALED = XFINAL*100 + AVG_SCALED
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     mul x12, x22, x9             // x12 = XFINAL * 100
     add x25, x12, x24             // x25 = NEXT_SCALED (escalado x100)
 
@@ -169,7 +176,7 @@ _start:
 
 
     // 7) Abrir archivo de salida
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     adr x0, out_filename
     bl open_output
     cmp x0, #0
@@ -181,7 +188,7 @@ _start:
 
 
     // 8) Escribir MODULE=PREDICTION
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     mov x0, x19
     adr x1, str_module
     mov x2, #len_module
@@ -193,7 +200,7 @@ _start:
 
 
     // 9) Escribir INITIAL_VALUE=<XINICIAL>
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     mov x0, x19			//el fd del archivo abierto
     adr x1, str_initial        //donnde esta el valor INITIAL_VALUE
     mov x2, #len_initial	//el tamanio del archivo
@@ -218,7 +225,7 @@ _start:
 
 
     // 10) Escribir FINAL_VALUE=<XFINAL>
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     mov x0, x19
     adr x1, str_final
     mov x2, #len_final
@@ -244,9 +251,9 @@ _start:
 
 
 
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     // 11) Escribir TOTAL_DIFF=<DIF>
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     mov x0, x19
     adr x1, str_diff
     mov x2, #len_diff
@@ -270,7 +277,7 @@ _start:
 
     // 12) Escribir AVG_CHANGE=<entero>.<decimal>
     //     a partir de x24 = AVG_SCALED (escalado x100)
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     mov x0, x19
     adr x1, str_avg
     mov x2, #len_avg
@@ -290,7 +297,7 @@ _start:
 
     // 13) Escribir NEXT_VALUE=<entero>.<decimal>
     //     a partir de x25 = NEXT_SCALED escalado x100
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     mov x0, x19
     adr x1, str_next
     mov x2, #len_next
@@ -306,9 +313,9 @@ _start:
 
 
 
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     // 14) Cerrar archivo y salir
-    // -----------------------------------------------------------
+    // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
     mov x0, x19
     bl close_fd
 
@@ -337,7 +344,7 @@ error_exit:
 //   Ejemplo: x0 = 3420  ->  escribe "34.20"
 //
 //   Usa registros callee-saved x26, x27, x28 los guarda y restaura
-// =====================================================================
+// // <3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3<3
 
 write_fixed_point:
     stp x29, x30, [sp, #-48]!
