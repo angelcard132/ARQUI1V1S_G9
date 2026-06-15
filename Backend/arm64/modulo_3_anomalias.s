@@ -128,12 +128,18 @@ _start:
     ldr     x0, [sp]                        // Carga argc desde el stack
 
     cmp     x0, #2                          // Verifica argumentos mínimos necesarios
-    blt     no_argumento                    
+    bge     leer_argumento                  
 
+    # Si no hay argumentos, usar columna por defecto (1)
+    mov     x20, #1                         // Columna por defecto: 1 (TEMP)
+    b       inicio_programa                 
+
+leer_argumento:
     ldr     x0, [sp, #16]                   // Carga dirección de argv[1]
     bl      parse_int                       // Convierte argumento ASCII a entero binario
     mov     x20, x0                         // Almacena ID numérico de la columna en x20
 
+inicio_programa:
     # -- CONTROLES DE RANGO (COLUMNAS 1 A 8) --
     cmp     x20, #1                         
     blt     exit_error                      
@@ -326,12 +332,14 @@ abrir_descriptor_salida:
     mov     x0, x24                         // Pasa valor numérico de la media
     adr     x1, buffer_columna              
     bl      int_to_ascii                    
-    mov     x2, x0                          
+    mov     x20, x0                         // x20 = longitud (callee-saved)
     mov     x0, #1                          
     adr     x1, buffer_columna              
+    mov     x2, x20                         
     bl      write_result                    
     mov     x0, x27                         
     adr     x1, buffer_columna              
+    mov     x2, x20                         
     bl      write_result                    
     bl      salto                           
 
@@ -348,12 +356,14 @@ abrir_descriptor_salida:
     mov     x0, x25                         // Pasa valor numérico de desviación estándar
     adr     x1, buffer_columna              
     bl      int_to_ascii                    
-    mov     x2, x0                          
+    mov     x20, x0                         // x20 = longitud (callee-saved)
     mov     x0, #1                          
     adr     x1, buffer_columna              
+    mov     x2, x20                         
     bl      write_result                    
     mov     x0, x27                         
     adr     x1, buffer_columna              
+    mov     x2, x20                         
     bl      write_result                    
     bl      salto                           
 
@@ -370,12 +380,14 @@ abrir_descriptor_salida:
     mov     x0, x26                         // Pasa el conteo de anomalías totales
     adr     x1, buffer_columna              
     bl      int_to_ascii                    
-    mov     x2, x0                          
+    mov     x20, x0                         // x20 = longitud (callee-saved)
     mov     x0, #1                          
     adr     x1, buffer_columna              
+    mov     x2, x20                         
     bl      write_result                    
     mov     x0, x27                         
     adr     x1, buffer_columna              
+    mov     x2, x20                         
     bl      write_result                    
     bl      salto                           
 
