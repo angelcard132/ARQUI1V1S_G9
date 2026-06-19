@@ -49,9 +49,7 @@ UMBRAL_SUELO_SECO = 35
 UMBRAL_SUELO_SAT  = 80
 DURACION_RIEGO    = 10
 
-
-PIN_BOMBA1     = 1
-PIN_BOMBA2     = 27
+PIN_BOMBA      = 27
 PIN_VENTILADOR = 22
 PIN_LUZ1       = 23
 PIN_LUZ2       = 24
@@ -103,7 +101,7 @@ if not SIMULACION:
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
 
-        for pin in [PIN_BOMBA1, PIN_BOMBA2, PIN_VENTILADOR,
+        for pin in [ PIN_BOMBA, PIN_VENTILADOR,
                     PIN_LUZ1, PIN_LUZ2, PIN_LED_VERDE,
                     PIN_LED_AMAR, PIN_LED_ROJO, PIN_BUZZER]:
             GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
@@ -276,8 +274,9 @@ def set_leds(estado):
 
 def activar_riego(area, activar, motivo="automatico"):
     global timers_riego
+
     key = f"riego{area}"
-    pin = PIN_BOMBA1 if area == 1 else PIN_BOMBA2
+    pin = PIN_BOMBA
 
     with state["lock"]:
         suelo = state.get(f"suelo{area}")
@@ -286,28 +285,41 @@ def activar_riego(area, activar, motivo="automatico"):
             if suelo is not None and suelo >= UMBRAL_SUELO_SAT:
                 log(f"[Riego] Area {area} BLOQUEADO — suelo saturado ({suelo}%)")
                 return
-            if state[key]:
+
+            if state["riego1"] or state["riego2"]:
                 return
+
             state[key] = True
             gpio_set(pin, True)
+
             registrar_evento(f"riego_area{area}_ON", f"suelo={suelo}%", motivo, state["global"])
             guardar_actuador_log(f"riego_area{area}", "ON", motivo, state["global"])
+
             if area in timers_riego and timers_riego[area]:
                 timers_riego[area].cancel()
+
             timers_riego[area] = threading.Timer(
-                DURACION_RIEGO, activar_riego, args=[area, False, "fin_ciclo"]
+                DURACION_RIEGO,
+                activar_riego,
+                args=[area, False, "fin_ciclo"]
             )
             timers_riego[area].start()
-            log(f"[Riego] Area {area} ON — apagado en {DURACION_RIEGO}s")
+
+            log(f"[Riego] Bomba ON para Area {area} — apagado en {DURACION_RIEGO}s")
+
         else:
             if area in timers_riego and timers_riego[area]:
                 timers_riego[area].cancel()
                 timers_riego[area] = None
+
             state[key] = False
-            gpio_set(pin, False)
+
+            if not state["riego1"] and not state["riego2"]:
+                gpio_set(pin, False)
+
             registrar_evento(f"riego_area{area}_OFF", motivo, motivo, state["global"])
             guardar_actuador_log(f"riego_area{area}", "OFF", motivo, state["global"])
-            log(f"[Riego] Area {area} OFF ({motivo})")
+            log(f"[Riego] Bomba OFF para Area {area} ({motivo})")
 
 def set_ventilador(activar, motivo="automatico"):
     with state["lock"]:
@@ -497,7 +509,7 @@ def hilo_botones():
             state["modo"] = nuevo
             registrar_evento("modo", nuevo, "boton_1", state["global"])
         if not b[PIN_BTN2] and prev[PIN_BTN2]:
-            activar_riego(1, not state["riego1"], "boton_2")
+            activar_riego(1, True, "boton_2")
         if not b[PIN_BTN3] and prev[PIN_BTN3]:
             set_luces(not state["luces"], "boton_3")
         if not b[PIN_BTN4] and prev[PIN_BTN4]:
@@ -657,7 +669,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         log("\n[Main] Apagando sistema...")
         if gpio_ok:
-            for pin in [PIN_BOMBA1, PIN_BOMBA2, PIN_VENTILADOR,
+            for pin in [PIN_BOMBA, PIN_VENTILADOR,
                         PIN_LUZ1, PIN_LUZ2, PIN_LED_VERDE,
                         PIN_LED_AMAR, PIN_LED_ROJO, PIN_BUZZER]:
                 GPIO.output(pin, GPIO.LOW)
