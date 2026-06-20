@@ -49,18 +49,18 @@ UMBRAL_SUELO_SECO = 35
 UMBRAL_SUELO_SAT  = 80
 DURACION_RIEGO    = 10
 
-PIN_BOMBA      = 27
-PIN_VENTILADOR = 22
+PIN_BOMBA      = 20
+PIN_VENTILADOR = 21
 PIN_LUZ1       = 23
 PIN_LUZ2       = 24
 PIN_LED_VERDE  = 5
 PIN_LED_AMAR   = 6
 PIN_LED_ROJO   = 13
-PIN_BUZZER     = 19
-PIN_BTN1       = 16
-PIN_BTN2       = 20
-PIN_BTN3       = 21
-PIN_BTN4       = 12
+PIN_BUZZER     = 12
+PIN_BTN1       = 0
+PIN_BTN2       = 19
+PIN_BTN3       = 26
+PIN_BTN4       = 16
 PIN_DHT        = 17
 
 ARDUINO_PORT     = "/dev/ttyACM0"   
