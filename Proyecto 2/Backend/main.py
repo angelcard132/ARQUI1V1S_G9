@@ -43,14 +43,14 @@ ARM64_DIR = "./arm64"
 CSV_HEADER = ["ID","TEMP","HUM_AIRE","HUM_SUELO_1","HUM_SUELO_2","LUZ","GAS","RIEGO_1","RIEGO_2"]
 
 #  Umbrales 
-UMBRAL_TEMP_ALTA  = 30
-UMBRAL_HUM_BAJA   = 40
-UMBRAL_HUM_ALTA   = 80
-UMBRAL_LUZ_BAJA   = 300
-UMBRAL_GAS_WARN   = 200
-UMBRAL_GAS_EMRG   = 400
-UMBRAL_SUELO_SECO = 35
-UMBRAL_SUELO_SAT  = 80
+UMBRAL_TEMP_ALTA  = 33
+UMBRAL_HUM_BAJA   = 30
+UMBRAL_HUM_ALTA   = 85
+UMBRAL_LUZ_BAJA   = 200
+UMBRAL_GAS_WARN   = 300
+UMBRAL_GAS_EMRG   = 420
+UMBRAL_SUELO_SECO = 25
+UMBRAL_SUELO_SAT  = 90
 DURACION_RIEGO    = 10
 
 PIN_BOMBA      = 20
@@ -257,12 +257,12 @@ def leer_sensores():
             val = (base or (mn + mx) / 2) + random.uniform(dn, dp)
             return round(max(mn, min(mx, val)), 1)
         return {
-            "temp":   v(state["temp"],   18, 38, -0.5,  0.8),
-            "hum":    v(state["hum"],    20, 95, -1.0,  1.0),
-            "luz":    v(state["luz"],     0, 1000, -30,  25),
-            "gas":    v(state["gas"],    50, 600,  -8,   12),
-            "suelo1": v(state["suelo1"], 10, 95,  -1.5,  0.4),
-            "suelo2": v(state["suelo2"], 10, 95,  -1.2,  0.4),
+            "temp":   round(random.uniform(20, 38), 1),
+            "hum":    round(random.uniform(20, 95), 1),
+            "luz":    round(random.uniform(100, 1000), 1),
+            "gas":    round(random.uniform(50, 500), 1),
+            "suelo1": round(random.uniform(10, 95), 1),
+            "suelo2": round(random.uniform(10, 95), 1),
         }
 
 

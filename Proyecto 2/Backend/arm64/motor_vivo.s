@@ -1,6 +1,4 @@
 .data
-newline: .ascii "\n"
-
 err_input:
     .ascii "ERROR\n"
 len_err_input = . - err_input
@@ -33,16 +31,31 @@ len_green = . - action_green
 buffer:
     .skip 128
 
+temp_buf:
+    .skip 40
+suelo1_buf:
+    .skip 40
+suelo2_buf:
+    .skip 40
+luz_buf:
+    .skip 40
+gas_buf:
+    .skip 40
+
+hist_count:
+    .skip 8
+
+hist_index:
+    .skip 8
+
 .text
 .global _start
 .include "atoi_num.s"
 
 _start:
-
     mov x5, #10
 
 main_loop:
-    // read(stdin, buffer, 128)
     mov x0, #0
     ldr x1, =buffer
     mov x2, #128
@@ -61,7 +74,7 @@ main_loop:
     beq exit_ok
 
     // Formato:
-    // TEMP,HUM_AIRE,SOIL1,SOIL2,LUZ,GAS,MODO
+    // TEMP,HUM_AIRE,SUELO1,SUELO2,LUZ,GAS,MODO
 
     bl atoi_csv
     cbz x7, print_error
@@ -73,11 +86,11 @@ main_loop:
 
     bl atoi_csv
     cbz x7, print_error
-    mov x24, x10        // SOIL1
+    mov x24, x10        // SUELO1
 
     bl atoi_csv
     cbz x7, print_error
-    mov x25, x10        // SOIL2
+    mov x25, x10        // SUELO2
 
     bl atoi_csv
     cbz x7, print_error
@@ -94,36 +107,85 @@ main_loop:
     // Si modo manual, no decide automáticamente
     cmp x28, #1
     beq print_green
+    mov x0, #1
+    ldr x1, =ok_msg
+    mov x2, #len_ok_msg
+    mov x8, #64
+    svc #0
+    bl guardar_historial
+    b main_loop
 
-    // Prioridad 1: gas alto
-    cmp x27, #400
-    bge print_alarm
+// Esta parte de guardar_historial, guarda la lectura actual en buffers circulares de 5 posiciones
+// x22 TEMP
+// x24 SUELO1
+// x25 SUELO2
+// x26 LUZ
+// x27 GAS
+guardar_historial:
+    ldr x0, =hist_index
+    ldr x1, [x0]            // x1 = índice actual 0..4
 
-    // Prioridad 2: suelo1 seco
-    cmp x24, #35
-    blt print_riego1
+    lsl x2, x1, #3          
 
-    // Prioridad 3: suelo2 seco
-    cmp x25, #35
-    blt print_riego2
+    ldr x3, =temp_buf
+    str x22, [x3, x2]
 
-    // Prioridad 4: luz baja
-    cmp x26, #300
-    blt print_light
+    ldr x3, =suelo1_buf
+    str x24, [x3, x2]
 
-    // Prioridad 5: temperatura alta
-    cmp x22, #30
-    bge print_fan
+    ldr x3, =suelo2_buf
+    str x25, [x3, x2]
 
-    b print_green
+    ldr x3, =luz_buf
+    str x26, [x3, x2]
 
+    ldr x3, =gas_buf
+    str x27, [x3, x2]
+
+    // hist_index = (hist_index + 1) % 5
+    add x1, x1, #1
+    cmp x1, #5
+    blt guardar_index
+    mov x1, #0
+
+guardar_index:
+    str x1, [x0]
+
+    // hist_count aumenta hasta máximo 5
+    ldr x0, =hist_count
+    ldr x1, [x0]
+    cmp x1, #5
+    bge guardar_done
+    add x1, x1, #1
+    str x1, [x0]
+
+guardar_done:
+    ret
+
+calcular_indicadores:
+ok_msg:
+    .ascii "INDICADORES_OK\n"
+len_ok_msg = . - ok_msg
+
+indicadores_cero:
+    mov x9, #0
+    mov x10, #0
+    mov x11, #0
+    mov x12, #0
+    mov x13, #0
+    mov x14, #0
+    mov x15, #0
+    mov x16, #0
+    mov x17, #0
+    mov x18, #0
+    ret
 print_alarm:
     mov x0, #1
     ldr x1, =action_alarm
     mov x2, #len_alarm
     mov x8, #64
     svc #0
-    b main_loop
+    ret
 
 print_riego1:
     mov x0, #1
@@ -131,7 +193,7 @@ print_riego1:
     mov x2, #len_riego1
     mov x8, #64
     svc #0
-    b main_loop
+    ret
 
 print_riego2:
     mov x0, #1
@@ -139,7 +201,7 @@ print_riego2:
     mov x2, #len_riego2
     mov x8, #64
     svc #0
-    b main_loop
+    ret
 
 print_light:
     mov x0, #1
@@ -147,7 +209,7 @@ print_light:
     mov x2, #len_light
     mov x8, #64
     svc #0
-    b main_loop
+    ret
 
 print_fan:
     mov x0, #1
@@ -155,7 +217,7 @@ print_fan:
     mov x2, #len_fan
     mov x8, #64
     svc #0
-    b main_loop
+    ret
 
 print_green:
     mov x0, #1
@@ -163,7 +225,7 @@ print_green:
     mov x2, #len_green
     mov x8, #64
     svc #0
-    b main_loop
+    ret
 
 print_error:
     mov x0, #1
