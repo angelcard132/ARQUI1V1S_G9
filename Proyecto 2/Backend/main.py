@@ -30,6 +30,9 @@ parser.add_argument("--sim", action="store_true", help="Modo simulacion sin GPIO
 args      = parser.parse_args()
 SIMULACION = args.sim
 
+ARM64_LIVE_BIN = os.path.join(ARM64_DIR, "motor_vivo")
+arm64_live = None
+
 MQTT_BROKER = "broker.emqx.io"
 MQTT_PORT   = 1883
 MQTT_ID     = "G9_backend_main_v2"
@@ -601,7 +604,8 @@ def hilo_sensores():
             {k: state[k] for k in ["riego1", "riego2", "ventilador", "luces", "alarma"]},
         )
         acumular_csv(lectura)
-        aplicar_automatismos(lectura)
+        respuesta_arm64 = consultar_motor_arm64(lectura)
+        ejecutar_decision_arm64(respuesta_arm64)
         actualizar_lcd(lectura)      
         actualizar_estado_global()
 
@@ -618,6 +622,77 @@ def hilo_sensores():
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
+
+
+
+
+def iniciar_motor_arm64():
+    global arm64_live
+
+    if not os.path.exists(ARM64_LIVE_BIN):
+        log(f"[ARM64 LIVE] No existe {ARM64_LIVE_BIN}")
+        return False
+
+    arm64_live = subprocess.Popen(
+        [ARM64_LIVE_BIN],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1
+    )
+
+    log("[ARM64 LIVE] Motor iniciado")
+    return True
+
+
+def consultar_motor_arm64(lectura):
+    if arm64_live is None:
+        return "ACTION=NO_ACTION"
+
+    modo = 0 if state["modo"] == "AUTOMATICO" else 1
+
+    linea = (
+        f"{int(lectura['temp'])},"
+        f"{int(lectura['hum'])},"
+        f"{int(lectura['suelo1'])},"
+        f"{int(lectura['suelo2'])},"
+        f"{int(lectura['luz'])},"
+        f"{int(lectura['gas'])},"
+        f"{modo}\n"
+    )
+
+    arm64_live.stdin.write(linea)
+    arm64_live.stdin.flush()
+
+    respuesta = arm64_live.stdout.readline().strip()
+    return respuesta
+
+
+def ejecutar_decision_arm64(respuesta):
+    log(f"[ARM64 LIVE] {respuesta}")
+
+    if respuesta == "ACTION=ALARM_ON":
+        set_alarma(True, "arm64_live")
+        set_ventilador(True, "arm64_live")
+
+    elif respuesta == "ACTION=RIEGO_1_ON":
+        activar_riego(1, True, "arm64_live")
+
+    elif respuesta == "ACTION=RIEGO_2_ON":
+        activar_riego(2, True, "arm64_live")
+
+    elif respuesta == "ACTION=LIGHT_ON":
+        set_luces(True, "arm64_live")
+
+    elif respuesta == "ACTION=FAN_ON":
+        set_ventilador(True, "arm64_live")
+
+    elif respuesta == "ACTION=LED_GREEN":
+        set_leds("NORMAL")
+
+    else:
+        log("[ARM64 LIVE] Sin accion reconocida")
 
 if __name__ == "__main__":
     print("=" * 52)
@@ -653,6 +728,8 @@ if __name__ == "__main__":
 
     # 3. Carpeta ARM64
     os.makedirs(ARM64_DIR, exist_ok=True)
+
+    iniciar_motor_arm64()
 
     # 4. Botones físicos
     if gpio_ok:
