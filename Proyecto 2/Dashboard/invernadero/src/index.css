@@ -1,0 +1,93 @@
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Colores base */
+  --ink:         #1a1c16;
+  --ink-2:       #2e3228;
+  --ink-3:       #454d3a;
+  --cream:       #f5f2eb;
+  --cream-2:     #ede8dc;
+  --cream-3:     #e2dcd0;
+
+  /* Verde botánico */
+  --green:       #3a6b1a;
+  --green-light: #5a9a2a;
+  --green-pale:  #d6e8c4;
+  --green-deep:  #1f3d0c;
+
+  /* Ámbar */
+  --amber:       #b86b0a;
+  --amber-pale:  #f5e0b8;
+
+  /* Rojo */
+  --red:         #9b2020;
+  --red-pale:    #f5d0d0;
+
+  /* Teal */
+  --teal:        #0e6e56;
+  --teal-pale:   #c4e0d8;
+
+  /* Superficies */
+  --surface:     #ffffff;
+  --surface-2:   #f7f4ed;
+  --surface-3:   #ede8dc;
+  --border:      rgba(26,28,22,0.10);
+  --border-2:    rgba(26,28,22,0.18);
+
+  /* Texto */
+  --text:        #1a1c16;
+  --text-2:      #4a5240;
+  --text-3:      #8a9280;
+
+  /* Fuentes */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+  --font-mono:    'DM Mono', 'Consolas', monospace;
+
+  /* Radios */
+  --r-sm:  5px;
+  --r-md:  8px;
+  --r-lg:  12px;
+  --r-xl:  16px;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 3px rgba(26,28,22,0.08);
+  --shadow-md: 0 4px 12px rgba(26,28,22,0.10);
+  --shadow-lg: 0 8px 24px rgba(26,28,22,0.12);
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font-body);
+  background: var(--cream);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--cream-2); }
+::-webkit-scrollbar-thumb { background: var(--cream-3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
+
+/* Animaciones */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.fade-up { animation: fadeUp 0.4s ease both; }
