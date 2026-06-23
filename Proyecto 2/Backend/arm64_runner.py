@@ -1,15 +1,3 @@
-"""
-arm64_runner.py
-Ejecuta un modulo ARM64 especifico sobre una columna especifica
-de lecturas.csv, a peticion del dashboard.
-
-Se importa en main.py:
-    from arm64_runner import ejecutar_modulo_individual
-
-Requiere que los binarios ARM64 acepten un argumento con el
-indice o nombre de columna. Si tus binarios actuales NO leen
-argumentos, ver la nota al final del archivo.
-"""
 
 import os
 import json

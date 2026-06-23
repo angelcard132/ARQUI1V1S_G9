@@ -39,6 +39,8 @@ buffer:
 
 _start:
 
+    mov x5, #10
+
 main_loop:
     // read(stdin, buffer, 128)
     mov x0, #0

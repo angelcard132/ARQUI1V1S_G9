@@ -7,6 +7,7 @@ import sys
 import subprocess
 import argparse
 from datetime import datetime
+from arm64_live_runner import ARM64LiveRunner
 
 from mongo_handler import (
     conectar        as mongo_conectar,
@@ -30,8 +31,8 @@ parser.add_argument("--sim", action="store_true", help="Modo simulacion sin GPIO
 args      = parser.parse_args()
 SIMULACION = args.sim
 
-ARM64_LIVE_BIN = os.path.join(ARM64_DIR, "motor_vivo")
-arm64_live = None
+ARM64_LIVE_BIN = os.path.join(os.path.dirname(__file__), "arm64", "motor_vivo")
+arm64_live = ARM64LiveRunner(ARM64_LIVE_BIN)
 
 MQTT_BROKER = "broker.emqx.io"
 MQTT_PORT   = 1883
@@ -604,7 +605,7 @@ def hilo_sensores():
             {k: state[k] for k in ["riego1", "riego2", "ventilador", "luces", "alarma"]},
         )
         acumular_csv(lectura)
-        respuesta_arm64 = consultar_motor_arm64(lectura)
+        respuesta_arm64 = arm64_live.consultar(lectura, state["modo"])
         ejecutar_decision_arm64(respuesta_arm64)
         actualizar_lcd(lectura)      
         actualizar_estado_global()
@@ -622,51 +623,6 @@ def hilo_sensores():
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
-
-
-
-
-def iniciar_motor_arm64():
-    global arm64_live
-
-    if not os.path.exists(ARM64_LIVE_BIN):
-        log(f"[ARM64 LIVE] No existe {ARM64_LIVE_BIN}")
-        return False
-
-    arm64_live = subprocess.Popen(
-        [ARM64_LIVE_BIN],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1
-    )
-
-    log("[ARM64 LIVE] Motor iniciado")
-    return True
-
-
-def consultar_motor_arm64(lectura):
-    if arm64_live is None:
-        return "ACTION=NO_ACTION"
-
-    modo = 0 if state["modo"] == "AUTOMATICO" else 1
-
-    linea = (
-        f"{int(lectura['temp'])},"
-        f"{int(lectura['hum'])},"
-        f"{int(lectura['suelo1'])},"
-        f"{int(lectura['suelo2'])},"
-        f"{int(lectura['luz'])},"
-        f"{int(lectura['gas'])},"
-        f"{modo}\n"
-    )
-
-    arm64_live.stdin.write(linea)
-    arm64_live.stdin.flush()
-
-    respuesta = arm64_live.stdout.readline().strip()
-    return respuesta
 
 
 def ejecutar_decision_arm64(respuesta):
@@ -693,6 +649,9 @@ def ejecutar_decision_arm64(respuesta):
 
     else:
         log("[ARM64 LIVE] Sin accion reconocida")
+
+
+
 
 if __name__ == "__main__":
     print("=" * 52)
@@ -729,7 +688,7 @@ if __name__ == "__main__":
     # 3. Carpeta ARM64
     os.makedirs(ARM64_DIR, exist_ok=True)
 
-    iniciar_motor_arm64()
+    arm64_live.iniciar()
 
     # 4. Botones físicos
     if gpio_ok:
@@ -758,6 +717,7 @@ if __name__ == "__main__":
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }), retain=True)
         registrar_evento("sistema", "APAGADO", "main_v2.py", "OFFLINE")
+        arm64_live.cerrar()
         mqtt_client.loop_stop()
         mqtt_client.disconnect()
         log("[Main] Sistema apagado correctamente")
