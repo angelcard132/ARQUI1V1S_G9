@@ -61,10 +61,10 @@ PIN_LED_VERDE  = 5
 PIN_LED_AMAR   = 6
 PIN_LED_ROJO   = 13
 PIN_BUZZER     = 12
-PIN_BTN1       = 0  //cambia entre automatico y manual
-PIN_BTN2       = 19 //riego manual
-PIN_BTN3       = 26 //encender y apagar luces manual
-PIN_BTN4       = 16 //silenciar buzzer y restablecer alerta
+PIN_BTN1       = 0  # cambia entre automatico y manual
+PIN_BTN2       = 19  # riego manual
+PIN_BTN3       = 26 # encender y apagar luces manual
+PIN_BTN4       = 16 # silenciar buzzer y restablecer alerta
 PIN_DHT        = 17
 
 ARDUINO_PORT     = "/dev/ttyACM0"   
@@ -501,22 +501,22 @@ def ejecutar_arm64():
         except Exception as e:
             log(f"[ARM64] Error en {binario}: {e}")
 
-//cambiar manual/automatico
+# cambiar manual/automatico
 def btn1_callback(channel):
     nuevo = "MANUAL" if state["modo"] == "AUTOMATICO" else "AUTOMATICO"
     state["modo"] = nuevo
     registrar_evento("modo", nuevo, "boton_1", state["global"])
     log(f"[Botones] Modo cambiado a {nuevo}")
 
-//activar riego manual
+# activar riego manual
 def btn2_callback(channel):
     activar_riego(1, True, "boton_2")
 
-//activar luces manual
+# activar luces manual
 def btn3_callback(channel):
     set_luces(not state["luces"], "boton_3")
 
-//apagar alarma
+# apagar alarma
 def btn4_callback(channel):
     set_alarma(False, "boton_4")
 
@@ -614,6 +614,20 @@ def hilo_sensores():
         acumular_csv(lectura)
         respuesta_arm64 = arm64_live.consultar(lectura, state["modo"])
         ejecutar_decision_arm64(respuesta_arm64)
+        try:
+            guardar_arm64("motor_vivo", {
+                "respuesta": respuesta_arm64,
+                "temp": int(lectura["temp"]),
+                "hum": int(lectura["hum"]),
+                "suelo1": int(lectura["suelo1"]),
+                "suelo2": int(lectura["suelo2"]),
+                "luz": int(lectura["luz"]),
+                "gas": int(lectura["gas"]),
+                "modo": state["modo"],
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+        except Exception as e:
+            log(f"[ARM64 LIVE] Error guardando MongoDB: {e}")
         actualizar_lcd(lectura)      
         actualizar_estado_global()
 
