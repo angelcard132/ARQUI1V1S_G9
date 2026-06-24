@@ -47,8 +47,8 @@ UMBRAL_TEMP_ALTA  = 33
 UMBRAL_HUM_BAJA   = 30
 UMBRAL_HUM_ALTA   = 85
 UMBRAL_LUZ_BAJA   = 200
-UMBRAL_GAS_WARN   = 300
-UMBRAL_GAS_EMRG   = 420
+UMBRAL_GAS_WARN   = 180
+UMBRAL_GAS_EMRG   = 250
 UMBRAL_SUELO_SECO = 25
 UMBRAL_SUELO_SAT  = 90
 DURACION_RIEGO    = 10
@@ -92,7 +92,7 @@ state = {
 
 timers_riego = {}
 
-
+arduino_lock = threading.Lock()
 gpio_ok    = False
 arduino_ok = False
 arduino    = None   # objeto serial global
@@ -139,12 +139,18 @@ def leer_arduino():
     Retorna dict con claves en minúscula: {"ldr":320,"gas":145,"suelo1":680}
     """
     global _ultimo_arduino
+
     if not arduino_ok or arduino is None:
         return None
+
     try:
-        arduino.reset_input_buffer()
-        linea = arduino.readline().decode("utf-8", errors="ignore").strip()
+        with arduino_lock:
+            linea = arduino.readline().decode("utf-8", errors="ignore").strip()
+
         if not linea:
+            return _ultimo_arduino
+
+        if linea == "LISTO":
             return _ultimo_arduino
 
         # Parsear formato CLAVE:VALOR,CLAVE:VALOR
@@ -280,59 +286,50 @@ def activar_riego(area, activar, motivo="automatico"):
     global timers_riego
 
     key = f"riego{area}"
-    pin = PIN_BOMBA
 
     with state["lock"]:
         suelo = state.get(f"suelo{area}")
 
         if activar:
             if suelo is not None and suelo >= UMBRAL_SUELO_SAT:
-                log(f"[Riego] Area {area} BLOQUEADO — suelo saturado ({suelo}%)")
+                log(f"[Riego] Bloqueado por saturacion ({suelo}%)")
                 return
 
             if state["riego1"] or state["riego2"]:
                 return
 
             state[key] = True
-            gpio_set(pin, True)
-
-            registrar_evento(f"riego_area{area}_ON", f"suelo={suelo}%", motivo, state["global"])
-            guardar_actuador_log(f"riego_area{area}", "ON", motivo, state["global"])
-
-            if area in timers_riego and timers_riego[area]:
-                timers_riego[area].cancel()
-
-            timers_riego[area] = threading.Timer(
-                DURACION_RIEGO,
-                activar_riego,
-                args=[area, False, "fin_ciclo"]
-            )
-            timers_riego[area].start()
-
-            log(f"[Riego] Bomba ON para Area {area} — apagado en {DURACION_RIEGO}s")
-
         else:
-            if area in timers_riego and timers_riego[area]:
-                timers_riego[area].cancel()
-                timers_riego[area] = None
-
             state[key] = False
 
-            if not state["riego1"] and not state["riego2"]:
-                gpio_set(pin, False)
+    enviar_arduino("A" if activar else "B")
 
-            registrar_evento(f"riego_area{area}_OFF", motivo, motivo, state["global"])
-            guardar_actuador_log(f"riego_area{area}", "OFF", motivo, state["global"])
-            log(f"[Riego] Bomba OFF para Area {area} ({motivo})")
+    if activar:
+        registrar_evento(f"riego_area{area}_ON", f"suelo={suelo}%", motivo, state["global"])
+        guardar_actuador_log(f"riego_area{area}", "ON", motivo, state["global"])
+
+        timers_riego[area] = threading.Timer(
+            DURACION_RIEGO,
+            activar_riego,
+            args=[area, False, "fin_ciclo"]
+        )
+        timers_riego[area].start()
+
+        log(f"[Riego] Bomba ON por Arduino")
+    else:
+        guardar_actuador_log(f"riego_area{area}", "OFF", motivo, state["global"])
+        log("[Riego] Bomba OFF por Arduino")
 
 def set_ventilador(activar, motivo="automatico"):
     with state["lock"]:
         if state["ventilador"] == activar:
             return
         state["ventilador"] = activar
-    gpio_set(PIN_VENTILADOR, activar)
+
+    enviar_arduino("C" if activar else "D")
+
     guardar_actuador_log("ventilador", "ON" if activar else "OFF", motivo, state["global"])
-    log(f"[Vent] {'ON' if activar else 'OFF'} ({motivo})")
+    log(f"[Vent] {'ON' if activar else 'OFF'} por Arduino ({motivo})")
 
 def set_luces(activar, motivo="automatico"):
     with state["lock"]:
@@ -349,10 +346,14 @@ def set_alarma(activar, motivo="automatico"):
         if state["alarma"] == activar:
             return
         state["alarma"] = activar
-    gpio_set(PIN_BUZZER,   activar)
+
+    enviar_arduino("E" if activar else "F")
+
+    # LED rojo puede seguir por GPIO si todavía lo tienen en Raspberry
     gpio_set(PIN_LED_ROJO, activar)
+
     guardar_actuador_log("alarma", "ON" if activar else "OFF", motivo, state["global"])
-    log(f"[Alarma] {'ON' if activar else 'OFF'} ({motivo})")
+    log(f"[Alarma] {'ON' if activar else 'OFF'} por Arduino ({motivo})")
 
 
 def aplicar_automatismos(lectura):
@@ -407,20 +408,44 @@ def calcular_estado():
     return "NORMAL"
 
 def actualizar_estado_global():
-    nuevo    = calcular_estado()
+    nuevo = calcular_estado()
     anterior = state["global"]
+
     with state["lock"]:
         state["global"] = nuevo
+
     set_leds(nuevo)
+
+    if nuevo in ("ADVERTENCIA", "EMERGENCIA"):
+        set_alarma(True, f"estado_{nuevo.lower()}")
+    else:
+        set_alarma(False, "estado_normal")
+
     publicar_estado_global(nuevo, state["modo"], {
         "temp": state["temp"], "hum": state["hum"],
         "suelo1": state["suelo1"], "suelo2": state["suelo2"],
         "luz": state["luz"], "gas": state["gas"],
     })
+
     if nuevo != anterior:
         registrar_evento("estado_global", nuevo, "sistema", nuevo)
         log(f"[Estado] {anterior} -> {nuevo}")
 
+
+def enviar_arduino(comando):
+    if not arduino_ok or arduino is None:
+        log(f"[Arduino] No conectado, comando ignorado: {comando}")
+        return False
+
+    try:
+        with arduino_lock:
+            arduino.write(comando.encode("utf-8"))
+            arduino.flush()
+        log(f"[Arduino] CMD -> {comando}")
+        return True
+    except Exception as e:
+        log(f"[Arduino] Error enviando comando '{comando}': {e}")
+        return False
 
 def publicar_sensores(lectura):
     def st_temp(v):  return "ALTA"  if v >= UMBRAL_TEMP_ALTA  else "NORMAL"
@@ -528,6 +553,21 @@ def configurar_botones():
     GPIO.add_event_detect(PIN_BTN3, GPIO.FALLING, callback=btn3_callback, bouncetime=300)
     GPIO.add_event_detect(PIN_BTN4, GPIO.FALLING, callback=btn4_callback, bouncetime=300)
 
+def hilo_botones():
+
+    if not gpio_ok:
+        log("[Botones] GPIO no disponible")
+        return
+
+    try:
+        configurar_botones()
+        log("[Botones] Hilo iniciado correctamente")
+
+        while True:
+            time.sleep(1)
+
+    except Exception as e:
+        log(f"[Botones] Error en hilo_botones: {e}")
 
 def mapear(valor, in_min, in_max, out_min, out_max):
     """Mapea un rango a otro — igual que en tu código de prueba."""
