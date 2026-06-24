@@ -61,10 +61,10 @@ PIN_LED_VERDE  = 5
 PIN_LED_AMAR   = 6
 PIN_LED_ROJO   = 13
 PIN_BUZZER     = 12
-PIN_BTN1       = 0
-PIN_BTN2       = 19
-PIN_BTN3       = 26
-PIN_BTN4       = 16
+PIN_BTN1       = 0  //cambia entre automatico y manual
+PIN_BTN2       = 19 //riego manual
+PIN_BTN3       = 26 //encender y apagar luces manual
+PIN_BTN4       = 16 //silenciar buzzer y restablecer alerta
 PIN_DHT        = 17
 
 ARDUINO_PORT     = "/dev/ttyACM0"   
@@ -501,25 +501,32 @@ def ejecutar_arm64():
         except Exception as e:
             log(f"[ARM64] Error en {binario}: {e}")
 
+//cambiar manual/automatico
+def btn1_callback(channel):
+    nuevo = "MANUAL" if state["modo"] == "AUTOMATICO" else "AUTOMATICO"
+    state["modo"] = nuevo
+    registrar_evento("modo", nuevo, "boton_1", state["global"])
+    log(f"[Botones] Modo cambiado a {nuevo}")
 
-def hilo_botones():
-    if not gpio_ok:
-        return
-    prev = {p: True for p in [PIN_BTN1, PIN_BTN2, PIN_BTN3, PIN_BTN4]}
-    while True:
-        b = {p: GPIO.input(p) for p in [PIN_BTN1, PIN_BTN2, PIN_BTN3, PIN_BTN4]}
-        if not b[PIN_BTN1] and prev[PIN_BTN1]:
-            nuevo = "MANUAL" if state["modo"] == "AUTOMATICO" else "AUTOMATICO"
-            state["modo"] = nuevo
-            registrar_evento("modo", nuevo, "boton_1", state["global"])
-        if not b[PIN_BTN2] and prev[PIN_BTN2]:
-            activar_riego(1, True, "boton_2")
-        if not b[PIN_BTN3] and prev[PIN_BTN3]:
-            set_luces(not state["luces"], "boton_3")
-        if not b[PIN_BTN4] and prev[PIN_BTN4]:
-            set_alarma(False, "boton_4")
-        prev = b
-        time.sleep(0.05)
+//activar riego manual
+def btn2_callback(channel):
+    activar_riego(1, True, "boton_2")
+
+//activar luces manual
+def btn3_callback(channel):
+    set_luces(not state["luces"], "boton_3")
+
+//apagar alarma
+def btn4_callback(channel):
+    set_alarma(False, "boton_4")
+
+def configurar_botones():
+    if not gpio_ok: return
+    
+    GPIO.add_event_detect(PIN_BTN1, GPIO.FALLING, callback=btn1_callback, bouncetime=300)
+    GPIO.add_event_detect(PIN_BTN2, GPIO.FALLING, callback=btn2_callback, bouncetime=300)
+    GPIO.add_event_detect(PIN_BTN3, GPIO.FALLING, callback=btn3_callback, bouncetime=300)
+    GPIO.add_event_detect(PIN_BTN4, GPIO.FALLING, callback=btn4_callback, bouncetime=300)
 
 
 def mapear(valor, in_min, in_max, out_min, out_max):

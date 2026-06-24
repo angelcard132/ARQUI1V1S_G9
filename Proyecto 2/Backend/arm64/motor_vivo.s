@@ -53,6 +53,11 @@ hist_index:
 .include "atoi_num.s"
 
 _start:
+    ldr x0, =hist_count
+    str xzr, [x0]
+
+    ldr x0, =hist_index
+    str xzr, [x0]
     mov x5, #10
 
 main_loop:
@@ -67,12 +72,15 @@ main_loop:
     ble exit_error
 
     ldr x21, =buffer
+    add x23, x21, x0        // x23 = fin del buffer
+    mov x22, x21  
 
     // si recibe n, termina
     ldrb w0, [x21]
     cmp w0, #'n'
     beq exit_ok
 
+    mov x5, #10  
     // Formato:
     // TEMP,HUM_AIRE,SUELO1,SUELO2,LUZ,GAS,MODO
 
@@ -104,15 +112,14 @@ main_loop:
     cbz x7, print_error
     mov x28, x10        // MODO
 
-    // Si modo manual, no decide automáticamente
+    // Si está en modo manual, no decide acciones automáticas
     cmp x28, #1
     beq print_green
-    mov x0, #1
-    ldr x1, =ok_msg
-    mov x2, #len_ok_msg
-    mov x8, #64
-    svc #0
+
     bl guardar_historial
+    bl calcular_indicadores
+    bl decidir_accion
+
     b main_loop
 
 // Esta parte de guardar_historial, guarda la lectura actual en buffers circulares de 5 posiciones
@@ -162,10 +169,59 @@ guardar_index:
 guardar_done:
     ret
 
+// Calcula:
+// x9  = promedio GAS
+// x10 = amplitud GAS
+// x11 = promedio SUELO1
+// x12 = tendencia SUELO1
+// x13 = promedio SUELO2
+// x14 = tendencia SUELO2
+// x15 = promedio LUZ
+// x16 = tendencia LUZ
+// x17 = promedio TEMP
+// x18 = tendencia TEMP
 calcular_indicadores:
-ok_msg:
-    .ascii "INDICADORES_OK\n"
-len_ok_msg = . - ok_msg
+    stp x29, x30, [sp, #-16]! //pila para entrar en la funcion
+    mov x29, sp
+
+    ldr x0, =hist_count
+    ldr x19, [x0]           // x19 = N
+
+    cmp x19, #0
+    beq indicadores_cero
+
+    // GAS: promedio y amplitud
+    ldr x20, =gas_buf
+    bl promedio_amplitud
+    mov x9, x0              // avg gas
+    mov x10, x1             // amp gas
+
+    // SUELO1: promedio y tendencia
+    ldr x20, =suelo1_buf
+    bl promedio_tendencia
+    mov x11, x0             // avg suelo1
+    mov x12, x1             // trend suelo1
+
+    // SUELO2
+    ldr x20, =suelo2_buf
+    bl promedio_tendencia
+    mov x13, x0
+    mov x14, x1
+
+    // LUZ
+    ldr x20, =luz_buf
+    bl promedio_tendencia
+    mov x15, x0
+    mov x16, x1
+
+    // TEMP
+    ldr x20, =temp_buf
+    bl promedio_tendencia
+    mov x17, x0
+    mov x18, x1
+
+    ldp x29, x30, [sp], #16
+    ret
 
 indicadores_cero:
     mov x9, #0
@@ -178,13 +234,137 @@ indicadores_cero:
     mov x16, #0
     mov x17, #0
     mov x18, #0
+
+    ldp x29, x30, [sp], #16
     ret
+
+// promedio_tendencia
+// Entrada:
+// x20 = puntero al buffer
+// x19 = cantidad N
+//
+// Retorna:
+// x0 = promedio
+// x1 = tendencia acumulada = ultimo - primero
+promedio_tendencia:
+    mov x2, #0              // i
+    mov x3, #0              // suma
+
+    ldr x4, [x20]           // primero
+    mov x5, x4              // ultimo temporal
+
+pt_loop:
+    cmp x2, x19
+    bge pt_done
+
+    lsl x6, x2, #3
+    ldr x7, [x20, x6]
+
+    add x3, x3, x7
+    mov x5, x7
+
+    add x2, x2, #1
+    b pt_loop
+
+pt_done:
+    udiv x0, x3, x19
+    sub x1, x5, x4
+    ret
+
+// promedio_amplitud
+// Entrada:
+// x20 = puntero al buffer
+// x19 = cantidad N
+// Retorna:
+// x0 = promedio
+// x1 = amplitud = max - min
+promedio_amplitud:
+    mov x2, #0
+    mov x3, #0
+
+    ldr x4, [x20]           // min
+    mov x5, x4              // max
+
+pa_loop:
+    cmp x2, x19
+    bge pa_done
+
+    lsl x6, x2, #3
+    ldr x7, [x20, x6]
+
+    add x3, x3, x7
+
+    cmp x7, x4
+    bge pa_check_max
+    mov x4, x7
+
+pa_check_max:
+    cmp x7, x5
+    ble pa_next
+    mov x5, x7
+
+pa_next:
+    add x2, x2, #1
+    b pa_loop
+
+pa_done:
+    udiv x0, x3, x19
+    sub x1, x5, x4
+    ret
+
+
+
+// Prioridades
+// 1 GAS alto o amplitud GAS alta = ALARM_ON
+// 2 SUELO1 bajo y tendencia descendente = RIEGO_1_ON
+// 3 SUELO2 bajo y tendencia descendente = RIEGO_2_ON
+// 4 LUZ baja y tendencia descendente = LIGHT_ON
+// 5 TEMP alta y tendencia ascendente = FAN_ON
+// 6 LED_GREEN
+decidir_accion:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    // GAS promedio alto o amplitud alta
+    cmp x9, #400
+    bge print_alarm
+
+    cmp x10, #150
+    bge print_alarm
+
+    // SUELO1 promedio bajo y tendencia descendente
+    cmp x11, #35
+    bge check_suelo2
+    cmp x12, #0
+    blt print_riego1
+
+check_suelo2:
+    cmp x13, #35
+    bge check_luz
+    cmp x14, #0
+    blt print_riego2
+
+check_luz:
+    cmp x15, #300
+    bge check_temp
+    cmp x16, #0
+    blt print_light
+
+check_temp:
+    cmp x17, #30
+    blt print_green
+    cmp x18, #0
+    bgt print_fan
+
+    b print_green
+
+
 print_alarm:
     mov x0, #1
     ldr x1, =action_alarm
     mov x2, #len_alarm
     mov x8, #64
     svc #0
+    ldp x29, x30, [sp], #16
     ret
 
 print_riego1:
@@ -193,6 +373,7 @@ print_riego1:
     mov x2, #len_riego1
     mov x8, #64
     svc #0
+    ldp x29, x30, [sp], #16
     ret
 
 print_riego2:
@@ -201,6 +382,7 @@ print_riego2:
     mov x2, #len_riego2
     mov x8, #64
     svc #0
+    ldp x29, x30, [sp], #16
     ret
 
 print_light:
@@ -209,6 +391,7 @@ print_light:
     mov x2, #len_light
     mov x8, #64
     svc #0
+    ldp x29, x30, [sp], #16
     ret
 
 print_fan:
@@ -217,6 +400,7 @@ print_fan:
     mov x2, #len_fan
     mov x8, #64
     svc #0
+    ldp x29, x30, [sp], #16
     ret
 
 print_green:
@@ -225,6 +409,7 @@ print_green:
     mov x2, #len_green
     mov x8, #64
     svc #0
+    ldp x29, x30, [sp], #16
     ret
 
 print_error:
