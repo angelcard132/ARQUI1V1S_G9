@@ -1,9 +1,11 @@
 import { useInvernadero } from '../context/InvernaderoContext'
 import { useClock } from '../hooks/useClock'
+import { useAuth } from "../context/AuthContext";
 
 export default function Topbar() {
   const { state, setModo } = useInvernadero()
   const { time, date }     = useClock()
+  const { logout } = useAuth();
 
   return (
     <header style={styles.topbar}>
@@ -39,6 +41,13 @@ export default function Topbar() {
           </div>
         )}
 
+        <button
+          onClick={logout}
+          title="Cerrar sesión"
+          style={styles.topbarLogout}
+        >
+          Salir
+        </button>
         {/* Reloj */}
         <div style={styles.clock}>
           <div style={styles.clockTime}>{time}</div>
@@ -52,6 +61,18 @@ export default function Topbar() {
 const BASE_TOPIC = 'Vacaciones 2026 | Primer Semestre'
 
 const styles = {
+  topbarLogout: {
+    fontFamily: 'JetBrains Mono, monospace',
+    fontSize: 12,
+    fontWeight: 600,
+    color: '#947c7c',
+    background: 'transparent',
+    border: 'transparent',
+    borderRadius: 3,
+    padding: '6px 12px',
+    cursor: 'pointer',
+    transition: 'color 0.15s ease, border-color 0.15s ease',
+  },
   topbar: {
     height: 56,
     background: '#faf8f2',
@@ -144,4 +165,5 @@ const styles = {
     fontSize: 10,
     color: '#8a9280',
   },
+  
 }

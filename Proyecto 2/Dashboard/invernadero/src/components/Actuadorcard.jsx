@@ -1,5 +1,5 @@
 export default function ActuadorCard({ icon, label, on, color = '#3a6b1a', onClick, disabled }) {
-  const bg    = on ? color + '18' : '#f5f2eb'
+  const bg    = on ? color + '18' : '#7a9179'
   const ic    = on ? color        : '#8a9280'
   const border = on ? color + '35' : 'rgba(26,28,22,0.09)'
 
@@ -14,7 +14,7 @@ export default function ActuadorCard({ icon, label, on, color = '#3a6b1a', onCli
         <i className={`ti ${icon}`} style={{ fontSize: 18, color: ic }} />
       </div>
       <span style={styles.label}>{label}</span>
-      <span style={{ ...styles.badge, background: on ? color + '20' : '#ede8dc', color: on ? color : '#8a9280' }}>
+      <span style={{ ...styles.badge, background: on ? color + '20' : '#495c4a', color: on ? color : '#8a9280' }}>
         {on ? 'ON' : 'OFF'}
       </span>
     </button>

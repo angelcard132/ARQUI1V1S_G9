@@ -25,7 +25,7 @@ export default function MetricCard({ icon, label, value, unit, status, statusCol
 
 const styles = {
   card: {
-    background: '#faf8f2',
+    background: '#314432',
     border: '1px solid rgba(26,28,22,0.08)',
     borderRadius: 10,
     padding: '12px 14px',

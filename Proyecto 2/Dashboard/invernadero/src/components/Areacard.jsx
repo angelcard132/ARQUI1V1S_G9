@@ -103,7 +103,7 @@ const styles = {
   },
   body: {
     padding: '12px 12px',
-    background: '#faf8f2',
+    background: '#405740',
   },
   barLabel: {
     display: 'flex',
