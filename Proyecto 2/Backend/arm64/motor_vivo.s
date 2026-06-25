@@ -4,28 +4,77 @@ err_input:
 len_err_input = . - err_input
 
 action_alarm:
-    .ascii "ACTION=ALARM_ON\n"
+    .ascii "ACTION=ALARM_ON"
 len_alarm = . - action_alarm
 
 action_riego1:
-    .ascii "ACTION=RIEGO_1_ON\n"
+    .ascii "ACTION=RIEGO_1_ON"
 len_riego1 = . - action_riego1
 
 action_riego2:
-    .ascii "ACTION=RIEGO_2_ON\n"
+    .ascii "ACTION=RIEGO_2_ON"
 len_riego2 = . - action_riego2
 
 action_light:
-    .ascii "ACTION=LIGHT_ON\n"
+    .ascii "ACTION=LIGHT_ON"
 len_light = . - action_light
 
 action_fan:
-    .ascii "ACTION=FAN_ON\n"
+    .ascii "ACTION=FAN_ON"
 len_fan = . - action_fan
 
 action_green:
-    .ascii "ACTION=LED_GREEN\n"
+    .ascii "ACTION=LED_GREEN"
 len_green = . - action_green
+
+sep:
+    .ascii ";"
+
+label_avg_gas:
+    .ascii "AVG_GAS="
+len_avg_gas = . - label_avg_gas
+
+label_amp_gas:
+    .ascii ";AMP_GAS="
+len_amp_gas = . - label_amp_gas
+
+label_avg_suelo1:
+    .ascii ";AVG_SUELO1="
+len_avg_suelo1 = . - label_avg_suelo1
+
+label_trend_suelo1:
+    .ascii ";TREND_SUEALO1="
+len_trend_suelo1 = . - label_trend_suelo1
+
+label_avg_suelo2:
+    .ascii ";AVG_SUELO2="
+len_avg_suelo2 = . - label_avg_suelo2
+
+label_trend_suelo2:
+    .ascii ";TREND_SUELO2="
+len_trend_suelo2 = . - label_trend_suelo2
+
+label_avg_luz:
+    .ascii ";AVG_LUZ="
+len_avg_luz = . - label_avg_luz
+
+label_trend_luz:
+    .ascii ";TREND_LUZ="
+len_trend_luz = . - label_trend_luz
+
+label_avg_temp:
+    .ascii ";AVG_TEMP="
+len_avg_temp = . - label_avg_temp
+
+label_trend_temp:
+    .ascii ";TREND_TEMP="
+len_trend_temp = . - label_trend_temp
+
+newline:
+    .ascii "\n"
+
+num_buffer:
+    .skip 32
 
 .bss
 buffer:
@@ -324,6 +373,12 @@ pa_done:
 decidir_accion:
     stp x29, x30, [sp, #-16]!
     mov x29, sp
+
+    ldr x0, =hist_count
+    ldr x1, [x0]
+    cmp x1, #5
+    blt print_green
+
     // GAS promedio alto o amplitud alta
     cmp x9, #400
     bge print_alarm
@@ -364,6 +419,9 @@ print_alarm:
     mov x2, #len_alarm
     mov x8, #64
     svc #0
+
+    bl print_indicadores
+
     ldp x29, x30, [sp], #16
     ret
 
@@ -373,6 +431,8 @@ print_riego1:
     mov x2, #len_riego1
     mov x8, #64
     svc #0
+
+    bl print_indicadores
     ldp x29, x30, [sp], #16
     ret
 
@@ -382,6 +442,7 @@ print_riego2:
     mov x2, #len_riego2
     mov x8, #64
     svc #0
+    bl print_indicadores
     ldp x29, x30, [sp], #16
     ret
 
@@ -391,6 +452,7 @@ print_light:
     mov x2, #len_light
     mov x8, #64
     svc #0
+    bl print_indicadores
     ldp x29, x30, [sp], #16
     ret
 
@@ -400,6 +462,7 @@ print_fan:
     mov x2, #len_fan
     mov x8, #64
     svc #0
+    bl print_indicadores
     ldp x29, x30, [sp], #16
     ret
 
@@ -409,6 +472,7 @@ print_green:
     mov x2, #len_green
     mov x8, #64
     svc #0
+    bl print_indicadores
     ldp x29, x30, [sp], #16
     ret
 
@@ -429,3 +493,177 @@ exit_error:
     mov x0, #1
     mov x8, #93
     svc #0
+
+write_str:
+    mov x0, #1
+    mov x8, #64
+    svc #0
+    ret
+
+
+print_metric:
+    // x1 = label
+    // x2 = label_len
+    // x3 = value
+
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+
+    mov x0, #1
+    mov x8, #64
+    svc #0
+
+    mov x0, x3
+    ldr x1, =num_buffer
+    bl int_to_ascii_local
+
+    mov x2, x0
+    mov x0, #1
+    ldr x1, =num_buffer
+    mov x8, #64
+    svc #0
+
+    ldp x29, x30, [sp], #16
+    ret
+
+
+int_to_ascii_local:
+    // x0 = numero
+    // x1 = buffer
+    // retorna x0 = longitud
+
+    stp x29, x30, [sp, #-64]!
+    mov x29, sp
+
+    mov x19, x0
+    mov x20, x1
+
+    sub sp, sp, #32
+    mov x21, sp
+    mov x22, #0
+
+    mov x9, #0
+    cmp x19, #0
+    bge ita_positive
+
+    neg x19, x19
+    mov x9, #1
+
+ita_positive:
+    cbnz x19, ita_loop
+
+    mov w10, #'0'
+    strb w10, [x21]
+    mov x22, #1
+    b ita_reverse
+
+ita_loop:
+    cbz x19, ita_reverse
+
+    mov x11, #10
+    udiv x12, x19, x11
+    msub x13, x12, x11, x19
+    add w13, w13, #'0'
+    strb w13, [x21, x22]
+    add x22, x22, #1
+    mov x19, x12
+    b ita_loop
+
+ita_reverse:
+    mov x23, #0
+
+    cbz x9, ita_rev_loop
+    mov w10, #'-'
+    strb w10, [x20]
+    add x23, x23, #1
+
+ita_rev_loop:
+    cbz x22, ita_done
+    sub x22, x22, #1
+    ldrb w10, [x21, x22]
+    strb w10, [x20, x23]
+    add x23, x23, #1
+    b ita_rev_loop
+
+ita_done:
+    strb wzr, [x20, x23]
+    mov x0, x23
+
+    add sp, sp, #32
+    ldp x29, x30, [sp], #64
+    ret
+
+
+print_indicadores:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+
+    // AVG_GAS = x21
+    ldr x1, =label_avg_gas
+    mov x2, #len_avg_gas
+    mov x3, x21
+    bl print_metric
+
+    // AMP_GAS = x22
+    ldr x1, =label_amp_gas
+    mov x2, #len_amp_gas
+    mov x3, x22
+    bl print_metric
+
+    // AVG_SUELO1 = x23
+    ldr x1, =label_avg_suelo1
+    mov x2, #len_avg_suelo1
+    mov x3, x23
+    bl print_metric
+
+    // TREND_SUELO1 = x24
+    ldr x1, =label_trend_suelo1
+    mov x2, #len_trend_suelo1
+    mov x3, x24
+    bl print_metric
+
+    // AVG_SUELO2 = x25
+    ldr x1, =label_avg_suelo2
+    mov x2, #len_avg_suelo2
+    mov x3, x25
+    bl print_metric
+
+    // TREND_SUELO2 = x26
+    ldr x1, =label_trend_suelo2
+    mov x2, #len_trend_suelo2
+    mov x3, x26
+    bl print_metric
+
+    // AVG_LUZ = x27
+    ldr x1, =label_avg_luz
+    mov x2, #len_avg_luz
+    mov x3, x27
+    bl print_metric
+
+    // TREND_LUZ = x28
+    ldr x1, =label_trend_luz
+    mov x2, #len_trend_luz
+    mov x3, x28
+    bl print_metric
+
+    // AVG_TEMP = x9
+    ldr x1, =label_avg_temp
+    mov x2, #len_avg_temp
+    mov x3, x9
+    bl print_metric
+
+    // TREND_TEMP = x10
+    ldr x1, =label_trend_temp
+    mov x2, #len_trend_temp
+    mov x3, x10
+    bl print_metric
+
+    // newline
+    mov x0, #1
+    ldr x1, =newline
+    mov x2, #1
+    mov x8, #64
+    svc #0
+
+    ldp x29, x30, [sp], #16
+    ret

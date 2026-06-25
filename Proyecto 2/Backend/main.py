@@ -44,7 +44,7 @@ CSV_HEADER = ["ID","TEMP","HUM_AIRE","HUM_SUELO_1","HUM_SUELO_2","LUZ","GAS","RI
 
 #  Umbrales 
 UMBRAL_TEMP_ALTA  = 33
-UMBRAL_HUM_BAJA   = 30
+UMBRAL_HUM_BAJA   = 25
 UMBRAL_HUM_ALTA   = 85
 UMBRAL_LUZ_BAJA   = 200
 UMBRAL_GAS_WARN   = 180
@@ -61,7 +61,7 @@ PIN_LED_VERDE  = 5
 PIN_LED_AMAR   = 6
 PIN_LED_ROJO   = 13
 PIN_BUZZER     = 12
-PIN_BTN1       = 0  # cambia entre automatico y manual
+PIN_BTN1       = 25  # cambia entre automatico y manual
 PIN_BTN2       = 19  # riego manual
 PIN_BTN3       = 26 # encender y apagar luces manual
 PIN_BTN4       = 16 # silenciar buzzer y restablecer alerta
@@ -150,7 +150,12 @@ def leer_arduino():
         if not linea:
             return _ultimo_arduino
 
-        if linea == "LISTO":
+        if linea in (
+            "LISTO",
+            "BOMBA:ON", "BOMBA:OFF",
+            "VENTILADOR:ON", "VENTILADOR:OFF",
+            "BUZZER:ON", "BUZZER:OFF"
+        ):
             return _ultimo_arduino
 
         # Parsear formato CLAVE:VALOR,CLAVE:VALOR
@@ -159,9 +164,21 @@ def leer_arduino():
             parte = parte.strip()
             if ":" not in parte:
                 continue
-            clave, valor = parte.split(":")
-            datos[clave.strip().upper()] = int(valor.strip())
 
+            clave, valor = parte.split(":", 1)
+            clave = clave.strip().upper()
+            valor = valor.strip()
+
+            if clave not in ("LUZ", "GAS", "SUELO", "SUELO1", "SUELO2"):
+                continue
+
+            if not valor.isdigit():
+                continue
+
+            datos[clave] = int(valor)
+
+        if not datos:
+            return _ultimo_arduino
 
         resultado = {
             "ldr":    datos.get("LUZ",   300),
@@ -222,7 +239,6 @@ def leer_sensores():
     import random
 
     if gpio_ok:
-        # 1. DHT22 — temperatura y humedad (sigue igual, directo en Raspi)
         try:
             temp = round(dht_sensor.temperature, 1)
             hum  = round(dht_sensor.humidity,    1)
@@ -356,6 +372,58 @@ def set_alarma(activar, motivo="automatico"):
     log(f"[Alarma] {'ON' if activar else 'OFF'} por Arduino ({motivo})")
 
 
+ultimo_boton = {
+    "btn1": 0,
+    "btn2": 0,
+    "btn3": 0,
+    "btn4": 0,
+}
+
+def puede_boton(nombre, espera=1.2):
+    ahora = time.time()
+    if ahora - ultimo_boton[nombre] < espera:
+        return False
+    ultimo_boton[nombre] = ahora
+    return True
+
+def btn1_callback(channel):
+    if not puede_boton("btn1"):
+        return
+    if GPIO.input(channel) != GPIO.LOW:
+        return
+
+    nuevo = "MANUAL" if state["modo"] == "AUTOMATICO" else "AUTOMATICO"
+    state["modo"] = nuevo
+    registrar_evento("modo", nuevo, "boton_1", state["global"])
+    log(f"[Botones] Modo cambiado a {nuevo}")
+
+def btn2_callback(channel):
+    if not puede_boton("btn2"):
+        return
+    if GPIO.input(channel) != GPIO.LOW:
+        return
+
+    activar_riego(1, True, "boton_2")
+
+def btn3_callback(channel):
+    if not puede_boton("btn3"):
+        return
+    if GPIO.input(channel) != GPIO.LOW:
+        return
+
+    set_luces(not state["luces"], "boton_3")
+
+def btn4_callback(channel):
+    if not puede_boton("btn4"):
+        return
+    if GPIO.input(channel) != GPIO.LOW:
+        return
+
+    with state["lock"]:
+        state["alarma_silenciada"] = True
+
+    set_alarma(False, "boton_4_silenciar")
+
 def aplicar_automatismos(lectura):
     if state["modo"] != "AUTOMATICO":
         if lectura["gas"] >= UMBRAL_GAS_EMRG:
@@ -374,7 +442,8 @@ def aplicar_automatismos(lectura):
         set_alarma(True, "gas_emergencia")
         registrar_evento("gas_emergencia", lectura["gas"], "sensor", state["global"])
     elif lectura["gas"] < UMBRAL_GAS_EMRG and state["alarma"]:
-        set_alarma(False, "gas_normalizado")
+        if state["global"] not in ("ADVERTENCIA", "EMERGENCIA"):
+            set_alarma(False, "gas_normalizado")
 
     if lectura["luz"] < UMBRAL_LUZ_BAJA:
         set_luces(True, "luz_baja")
@@ -417,8 +486,11 @@ def actualizar_estado_global():
     set_leds(nuevo)
 
     if nuevo in ("ADVERTENCIA", "EMERGENCIA"):
-        set_alarma(True, f"estado_{nuevo.lower()}")
+        if not state.get("alarma_silenciada", False):
+            set_alarma(True, f"estado_{nuevo.lower()}")
     else:
+        with state["lock"]:
+            state["alarma_silenciada"] = False
         set_alarma(False, "estado_normal")
 
     publicar_estado_global(nuevo, state["modo"], {
@@ -497,7 +569,9 @@ def _escribir_csv():
     except Exception as e:
         log(f"[CSV] Error: {e}")
 
-def ejecutar_arm64():
+"""
+
+ def ejecutar_arm64():
     if not os.path.exists(CSV_PATH):
         return
     modulos = [
@@ -526,32 +600,15 @@ def ejecutar_arm64():
         except Exception as e:
             log(f"[ARM64] Error en {binario}: {e}")
 
-# cambiar manual/automatico
-def btn1_callback(channel):
-    nuevo = "MANUAL" if state["modo"] == "AUTOMATICO" else "AUTOMATICO"
-    state["modo"] = nuevo
-    registrar_evento("modo", nuevo, "boton_1", state["global"])
-    log(f"[Botones] Modo cambiado a {nuevo}")
-
-# activar riego manual
-def btn2_callback(channel):
-    activar_riego(1, True, "boton_2")
-
-# activar luces manual
-def btn3_callback(channel):
-    set_luces(not state["luces"], "boton_3")
-
-# apagar alarma
-def btn4_callback(channel):
-    set_alarma(False, "boton_4")
-
+"""
 def configurar_botones():
-    if not gpio_ok: return
-    
-    GPIO.add_event_detect(PIN_BTN1, GPIO.FALLING, callback=btn1_callback, bouncetime=300)
-    GPIO.add_event_detect(PIN_BTN2, GPIO.FALLING, callback=btn2_callback, bouncetime=300)
-    GPIO.add_event_detect(PIN_BTN3, GPIO.FALLING, callback=btn3_callback, bouncetime=300)
-    GPIO.add_event_detect(PIN_BTN4, GPIO.FALLING, callback=btn4_callback, bouncetime=300)
+    if not gpio_ok:
+        return
+
+    GPIO.add_event_detect(PIN_BTN1, GPIO.FALLING, callback=btn1_callback, bouncetime=1200)
+    GPIO.add_event_detect(PIN_BTN2, GPIO.FALLING, callback=btn2_callback, bouncetime=1200)
+    GPIO.add_event_detect(PIN_BTN3, GPIO.FALLING, callback=btn3_callback, bouncetime=1200)
+    GPIO.add_event_detect(PIN_BTN4, GPIO.FALLING, callback=btn4_callback, bouncetime=1200)
 
 def hilo_botones():
 
@@ -651,9 +708,23 @@ def hilo_sensores():
             {k: state[k] for k in ["temp", "hum", "luz", "gas", "suelo1", "suelo2"]},
             {k: state[k] for k in ["riego1", "riego2", "ventilador", "luces", "alarma"]},
         )
+        aplicar_automatismos(lectura)
         acumular_csv(lectura)
-        respuesta_arm64 = arm64_live.consultar(lectura, state["modo"])
-        ejecutar_decision_arm64(respuesta_arm64)
+        try:
+            respuesta_arm64 = arm64_live.consultar(lectura, state["modo"])
+            ejecutar_decision_arm64(respuesta_arm64)
+        except BrokenPipeError:
+            log("[ARM64 LIVE] motor_vivo se cerró. Reiniciando...")
+            try:
+                arm64_live.cerrar()
+            except:
+                pass
+            arm64_live.iniciar()
+            respuesta_arm64 = "ACTION=NONE"
+        except Exception as e:
+            log(f"[ARM64 LIVE] Error consultando motor_vivo: {e}")
+            respuesta_arm64 = "ACTION=NONE"
+
         try:
             guardar_arm64("motor_vivo", {
                 "respuesta": respuesta_arm64,
