@@ -1,0 +1,7 @@
+pip install paho-mqtt
+pip install pyserial
+pip install pymongo
+pip install adafruit-circuitpython-dht
+pip install adafruit-blinka
+pip install RPLCD
+pip install RPi.GPIO
