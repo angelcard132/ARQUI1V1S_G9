@@ -14,6 +14,7 @@ csv_bytes_read: .quad 0
 .section .text
 .global open_csv, read_csv, get_column, parse_int
 .global int_to_ascii, write_result, open_output, close_fd, newline
+.global count_rows
 
 open_csv:
     mov x0, #-100
@@ -272,4 +273,41 @@ newline:
     mov x8, #64
     svc #0
     add sp, sp, #1
+    ret
+
+count_rows:
+    stp x29, x30, [sp, #-32]!
+    mov x29, sp
+    str x19, [sp, #16]
+
+    adr x19, csv_buffer
+    mov x0, #0
+
+cr_skip_header:
+    ldrb w9, [x19], #1
+    cbz w9, cr_done
+    cmp w9, #'$'
+    beq cr_done
+    cmp w9, #10
+    bne cr_skip_header
+
+cr_loop:
+    ldrb w9, [x19], #1
+    cbz w9, cr_last_check
+    cmp w9, #'$'
+    beq cr_last_check
+    cmp w9, #10
+    bne cr_loop
+    add x0, x0, #1
+    b cr_loop
+
+cr_last_check:
+    ldrb w10, [x19, #-2]
+    cmp w10, #10
+    beq cr_done
+    add x0, x0, #1
+
+cr_done:
+    ldr x19, [sp, #16]
+    ldp x29, x30, [sp], #32
     ret
