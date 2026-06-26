@@ -34,7 +34,7 @@ UMBRAL_GAS_WARN = 80
 UMBRAL_GAS_EMERG = 90
 UMBRAL_GAS_MAXIMO = 110
 
-UMBRAL_LUZ_OSCURO = 600
+UMBRAL_LUZ_OSCURO = 220
 
 UMBRAL_SUELO_SECO = 700
 UMBRAL_SUELO_SATURADO = 400
@@ -266,18 +266,16 @@ def automatismos():
     advertencia = False
 
     if gas is not None:
-        if gas >= UMBRAL_GAS_WARN:
-            set_buzzer(True)
-            advertencia = True
-        else:
-            set_buzzer(False)
-
         if gas >= UMBRAL_GAS_EMERG:
+            set_buzzer(True)
             set_ventilador(True)
             emergencia = True
         else:
+            set_buzzer(False)
             if temp is None or temp < UMBRAL_TEMP_ALTA:
                 set_ventilador(False)
+            if gas >= UMBRAL_GAS_WARN:
+                advertencia = True
 
     if temp is not None and temp >= UMBRAL_TEMP_ALTA:
         set_ventilador(True)
@@ -422,16 +420,14 @@ def imprimir_estado():
 
 try:
     print("=== PRUEBA ENUNCIADO ACTUALIZADA ===")
-    print("Gas >= 80  -> buzzer ON")
-    print("Gas >= 90  -> ventilador ON")
-    print("Luz >= 600 -> luces ON")
+    print("Gas >= 80  -> advertencia")
+    print("Gas >= 90  -> buzzer ON y ventilador ON (emergencia)")
+    print("Luz >= 220 -> luces ON")
     print("Suelo >= 700 -> riego cada 20s por 5s")
     print("BTN1: automatico/manual")
     print("BTN2: riego manual")
     print("BTN3: luces manual")
     print("BTN4: silenciar buzzer")
-    print("------------------------------------")
-
     lcd.clear()
     lcd.write_string("Prueba sistema")
     lcd.crlf()
