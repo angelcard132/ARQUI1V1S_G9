@@ -37,6 +37,7 @@ CSV_PATH   = "lecturas.csv"
 ARM64_DIR  = "./arm64"
 CSV_HEADER = ["ID", "TEMP", "HUM_AIRE", "HUM_SUELO_1", "HUM_SUELO_2",
               "LUZ", "GAS", "RIEGO_1", "RIEGO_2"]
+CICLO_SENSORES = 2  # segundos entre lecturas publicadas
 
 ARM64_LIVE_BIN = os.path.join(os.path.dirname(__file__), "arm64", "motor_vivo")
 arm64_live = ARM64LiveRunner(ARM64_LIVE_BIN)
@@ -106,6 +107,9 @@ state = {
 timers_riego  = {1: None, 2: None}
 arduino_lock  = threading.Lock()
 ultimo_boton  = {"btn1": 0.0, "btn2": 0.0, "btn3": 0.0, "btn4": 0.0}
+arm64_live_cond = threading.Condition()
+arm64_live_pendiente = None
+arm64_live_detener = False
 
 gpio_ok    = False
 arduino_ok = False
@@ -150,7 +154,7 @@ def inicializar_arduino():
     global arduino, arduino_ok
     try:
         import serial as pyserial
-        arduino = pyserial.Serial(ARDUINO_PORT, ARDUINO_BAUDRATE, timeout=3)
+        arduino = pyserial.Serial(ARDUINO_PORT, ARDUINO_BAUDRATE, timeout=0.5)
         time.sleep(2)  # esperar reset del Arduino tras abrir el puerto
         arduino_ok = True
         log(f"[Arduino] Conectado en {ARDUINO_PORT} @ {ARDUINO_BAUDRATE} baud")
@@ -258,8 +262,8 @@ def leer_sensores():
             hum  = round(dht_sensor.humidity, 1)
         except Exception as e:
             log(f"[DHT] Error: {e}")
-            temp = state["temp"] or 25.0
-            hum  = state["hum"] or 60.0
+            temp = None
+            hum  = None
 
         # Arduino — LDR, MQ135, suelo1, suelo2
         ard = leer_arduino()
@@ -453,9 +457,9 @@ def aplicar_automatismos(lectura):
             set_alarma(True, "gas_emergencia_override")
         return
 
-    if lectura["temp"] >= UMBRAL_TEMP_ALTA:
+    if lectura["temp"] is not None and lectura["temp"] >= UMBRAL_TEMP_ALTA:
         set_ventilador(True, "temperatura_alta")
-    elif lectura["temp"] < UMBRAL_TEMP_ALTA - 2:
+    elif lectura["temp"] is not None and lectura["temp"] < UMBRAL_TEMP_ALTA - 2:
         if state.get("gas", 0) < UMBRAL_GAS_EMRG:
             set_ventilador(False, "temperatura_normal")
 
@@ -482,13 +486,18 @@ def calcular_estado():
     s = state
     if s.get("gas", 0) >= UMBRAL_GAS_EMRG:
         return "EMERGENCIA"
+    temp = s.get("temp")
+    hum = s.get("hum")
+    suelo1 = s.get("suelo1")
+    suelo2 = s.get("suelo2")
+    luz = s.get("luz")
     warn = any([
-        s.get("temp", 0) >= UMBRAL_TEMP_ALTA,
-        (s.get("hum") or 50) <= UMBRAL_HUM_BAJA,
-        (s.get("hum") or 50) >= UMBRAL_HUM_ALTA,
-        (s.get("suelo1") or 50) <= UMBRAL_SUELO_SECO,
-        (s.get("suelo2") or 50) <= UMBRAL_SUELO_SECO,
-        (s.get("luz") or 500) <= UMBRAL_LUZ_BAJA,
+        temp is not None and temp >= UMBRAL_TEMP_ALTA,
+        hum is not None and hum <= UMBRAL_HUM_BAJA,
+        hum is not None and hum >= UMBRAL_HUM_ALTA,
+        suelo1 is not None and suelo1 <= UMBRAL_SUELO_SECO,
+        suelo2 is not None and suelo2 <= UMBRAL_SUELO_SECO,
+        luz is not None and luz <= UMBRAL_LUZ_BAJA,
         s.get("gas", 0) >= UMBRAL_GAS_WARN,
     ])
     if warn:
@@ -535,8 +544,8 @@ def publicar_sensores(lectura):
     def st_gas(v):   return "GAS_EMERGENCIA" if v >= UMBRAL_GAS_EMRG else "GAS_ADVERTENCIA" if v >= UMBRAL_GAS_WARN else "GAS_NORMAL"
     def st_suelo(v): return "SECO" if v < UMBRAL_SUELO_SECO else "SATURADO" if v > UMBRAL_SUELO_SAT else "NORMAL"
 
-    publicar_sensor("temp",   lectura["temp"],   "C",   st_temp(lectura["temp"]),   {"sensor": "DHT11"})
-    publicar_sensor("hum",    lectura["hum"],    "%",   st_hum(lectura["hum"]),     {"sensor": "DHT11"})
+    publicar_sensor("temp",   lectura["temp"],   "C",   "NO_DISPONIBLE" if lectura["temp"] is None else st_temp(lectura["temp"]),   {"sensor": "DHT11"})
+    publicar_sensor("hum",    lectura["hum"],    "%",   "NO_DISPONIBLE" if lectura["hum"] is None else st_hum(lectura["hum"]),     {"sensor": "DHT11"})
     publicar_sensor("luz",    lectura["luz"],    "lux", st_luz(lectura["luz"]),     {"sensor": "LDR+Arduino"})
     publicar_sensor("gas",    lectura["gas"],    "ppm", st_gas(lectura["gas"]),     {"sensor": "MQ135+Arduino", "alarma_activa": lectura["gas"] >= UMBRAL_GAS_EMRG})
     publicar_sensor("suelo1", lectura["suelo1"], "%",   st_suelo(lectura["suelo1"]),{"sensor": "FC-28+Arduino", "area": "area1", "riego_activo": state["riego1"]})
@@ -605,9 +614,9 @@ def ejecutar_decision_arm64(respuesta):
         log(f"[ARM64 LIVE] Acción no reconocida: {respuesta}")
 
 
-def consultar_arm64_live(lectura):
+def _procesar_arm64_live(lectura, modo):
     try:
-        respuesta = arm64_live.consultar(lectura, state["modo"])
+        respuesta = arm64_live.consultar(lectura, modo)
         ejecutar_decision_arm64(respuesta)
     except BrokenPipeError:
         log("[ARM64 LIVE] motor_vivo se cerró inesperadamente. Reiniciando...")
@@ -630,13 +639,43 @@ def consultar_arm64_live(lectura):
             "suelo2": int(lectura["suelo2"]),
             "luz":    int(lectura["luz"]),
             "gas":    int(lectura["gas"]),
-            "modo":   state["modo"],
+            "modo":   modo,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         })
     except Exception as e:
         log(f"[ARM64 LIVE] Error guardando en MongoDB: {e}")
 
     return respuesta
+
+
+def hilo_arm64_live():
+    global arm64_live_pendiente, arm64_live_detener
+    while True:
+        with arm64_live_cond:
+            while not arm64_live_detener and arm64_live_pendiente is None:
+                arm64_live_cond.wait(timeout=1)
+            if arm64_live_detener:
+                return
+            paquete = arm64_live_pendiente
+            arm64_live_pendiente = None
+
+        if paquete is None:
+            continue
+
+        _procesar_arm64_live(paquete["lectura"], paquete["modo"])
+
+
+def consultar_arm64_live(lectura):
+    global arm64_live_pendiente
+    with arm64_live_cond:
+        if arm64_live_detener:
+            return "ACTION=NO_ACTION"
+        arm64_live_pendiente = {
+            "lectura": dict(lectura),
+            "modo": state["modo"],
+        }
+        arm64_live_cond.notify()
+    return "ACTION=PENDING"
 
 def actualizar_lcd(lectura):
     """Muestra datos rotativos en la LCD. En emergencia muestra alerta fija."""
@@ -657,9 +696,9 @@ def actualizar_lcd(lectura):
         lcd.clear()
 
         if pantalla == 0:
-            lcd.write_string(f"Temp: {lectura['temp']}C")
+            lcd.write_string(f"Temp: {'N/A' if lectura['temp'] is None else lectura['temp']}C")
             lcd.crlf()
-            lcd.write_string(f"Hum:  {lectura['hum']}%")
+            lcd.write_string(f"Hum:  {'N/A' if lectura['hum'] is None else lectura['hum']}%")
         elif pantalla == 1:
             lcd.write_string(f"Suelo1: {lectura['suelo1']}%")
             lcd.crlf()
@@ -714,10 +753,15 @@ def hilo_sensores():
         log(f"[Loop] T={lectura['temp']}C H={lectura['hum']}% "
             f"S1={lectura['suelo1']}% S2={lectura['suelo2']}% "
             f"Luz={lectura['luz']} Gas={lectura['gas']} [{state['global']}]")
-        time.sleep(5)
+        time.sleep(CICLO_SENSORES)
 
 def apagar_sistema():
     log("\n[Main] Apagando sistema...")
+
+    global arm64_live_detener
+    with arm64_live_cond:
+        arm64_live_detener = True
+        arm64_live_cond.notify_all()
 
     if gpio_ok:
         for pin in GPIO_OUTPUT_PINS:
@@ -784,6 +828,7 @@ if __name__ == "__main__":
 
     os.makedirs(ARM64_DIR, exist_ok=True)
     arm64_live.iniciar()
+    threading.Thread(target=hilo_arm64_live, daemon=True).start()
 
     if gpio_ok:
         threading.Thread(target=hilo_botones, daemon=True).start()

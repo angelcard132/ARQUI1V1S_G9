@@ -9,6 +9,7 @@ class ARM64LiveRunner:
         self.bin_path = bin_path
         self.proc = None
         self._stderr_thread = None
+        self._binario_faltante = False
 
     def iniciar(self):
         # Si ya había un proceso vivo, cerrarlo limpiamente antes de
@@ -19,6 +20,7 @@ class ARM64LiveRunner:
         if not os.path.exists(self.bin_path):
             print(f"[ARM64 LIVE] No existe el binario: {self.bin_path}")
             self.proc = None
+            self._binario_faltante = True
             return False
 
         try:
@@ -34,6 +36,8 @@ class ARM64LiveRunner:
             print(f"[ARM64 LIVE] Error al iniciar el proceso: {e}")
             self.proc = None
             return False
+
+        self._binario_faltante = False
 
         self._iniciar_lector_stderr()
         print("[ARM64 LIVE] Motor iniciado")
@@ -57,6 +61,9 @@ class ARM64LiveRunner:
         return self.proc is not None and self.proc.poll() is None
 
     def consultar(self, lectura, modo="AUTOMATICO"):
+        if self._binario_faltante:
+            return "ACTION=NO_ACTION"
+
         if not self._proceso_vivo():
             codigo = self.proc.poll() if self.proc else None
             print(f"[ARM64 LIVE] El proceso no está vivo (exit code={codigo}). Reiniciando...")
