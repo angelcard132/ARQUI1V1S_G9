@@ -15,6 +15,7 @@ from mongo_handler import (
     guardar_estado_sistema,
     guardar_actuador_log,
     guardar_arm64,
+    detener_worker as mongo_detener_worker,
 )
 from mqtt_handler import (
     configurar_mqtt,
@@ -787,6 +788,7 @@ def apagar_sistema():
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }), retain=True)
     registrar_evento("sistema", "APAGADO", "main_v2.py", "OFFLINE")
+    mongo_detener_worker()
 
     arm64_live.cerrar()
     mqtt_client.loop_stop()

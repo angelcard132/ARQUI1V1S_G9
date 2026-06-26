@@ -296,50 +296,18 @@ def _publicar_riego(area, activar, origen):
 
 
 def _guardar_comando(actuador, cmd, origen):
-    if _db is None:
-        return
-    try:
-        _db["commands"].insert_one({
-            "timestamp": datetime.now(),
-            "actuador":  actuador,
-            "comando":   cmd,
-            "origen":    origen,
-            "estado":    _state.get("global", "NORMAL"),
-        })
-        print(f"[MongoDB] commands <- {actuador}:{cmd} ({origen})")
-    except Exception as e:
-        print(f"[MongoDB] Error en commands: {e}")
+    from mongo_handler import guardar_comando
+    guardar_comando(actuador, cmd, origen, _state.get("global", "NORMAL"))
 
 
 def _guardar_actuador_log(actuador, accion, origen):
-    if _db is None:
-        return
-    try:
-        _db["actuator_logs"].insert_one({
-            "timestamp": datetime.now(),
-            "actuador":  actuador,
-            "accion":    accion,
-            "origen":    origen,
-            "estado":    _state.get("global", "NORMAL"),
-        })
-    except Exception as e:
-        print(f"[MongoDB] Error en actuator_logs: {e}")
+    from mongo_handler import guardar_actuador_log
+    guardar_actuador_log(actuador, accion, origen, _state.get("global", "NORMAL"))
 
 
 def _guardar_evento(tipo, valor, origen):
-    if _db is None:
-        return
-    try:
-        _db["events"].insert_one({
-            "timestamp": datetime.now(),
-            "tipo":      tipo,
-            "valor":     str(valor),
-            "origen":    origen,
-            "estado":    _state.get("global", "NORMAL"),
-        })
-    except Exception as e:
-        print(f"[MongoDB] Error en events: {e}")
-
+    from mongo_handler import registrar_evento
+    registrar_evento(tipo, valor, origen, _state.get("global", "NORMAL"))
 
 def _ts():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
