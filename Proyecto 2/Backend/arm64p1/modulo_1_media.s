@@ -21,7 +21,6 @@ ascii_buf:      .space 32
 .section .text
 .global _start
 
-.equ N, 30
 .equ COLUMNA, 1
 
 _start:
@@ -35,16 +34,15 @@ _start:
     mov x23, #0     // WEIGHT_SUM
 
 read_values:
-    cmp x19, #N
-    bge calc_weighted_mean
 
     mov x0, x19
     mov x1, #COLUMNA
     adr x2, col_buf
     mov x3, #32
     bl get_column
+
     cmp x0, #0
-    beq error_exit
+    beq calc_weighted_mean
 
     adr x0, col_buf
     bl parse_int
@@ -58,6 +56,11 @@ read_values:
     b read_values
 
 calc_weighted_mean:
+    cbz x19, error_exit
+
+    lsr x9, x23, #1
+    add x22, x22, x9
+
     sdiv x24, x22, x23        // media ponderada
 
     adr x0, out_filename
@@ -74,7 +77,7 @@ calc_weighted_mean:
     // Etiquetas y valores
     adr x1, str_total
     mov x2, #len_total
-    mov x3, #N
+    mov x3, x19
     bl write_number_line
 
     adr x1, str_sumx

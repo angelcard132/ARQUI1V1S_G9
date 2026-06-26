@@ -24,7 +24,6 @@ values: .space 240
 .section .text
 .global _start
 
-.equ N, 30
 .equ COLUMNA, 1
 
 _start:
@@ -37,16 +36,14 @@ _start:
     mov x28, #0
 
 read_values:
-    cmp x19, #N
-    bge calc_mean
-
     mov x0, x19
     mov x1, #COLUMNA
     adr x2, col_buf
     mov x3, #32
     bl get_column
+
     cmp x0, #0
-    beq error_exit
+    beq calc_mean
 
     adr x0, col_buf
     bl parse_int
@@ -57,14 +54,15 @@ read_values:
     b read_values
 
 calc_mean:
-    mov x9, #N
+    cbz x19, error_exit
+    mov x9, x19
     sdiv x22, x28, x9
 
     mov x19, #0
     mov x23, #0
 
 calc_variance_sum:
-    cmp x19, #N
+    mov x9, x19
     bge calc_variance
 
     ldr x10, [x27, x19, lsl #3]
@@ -76,9 +74,7 @@ calc_variance_sum:
     b calc_variance_sum
 
 calc_variance:
-    mov x9, #N
     sdiv x24, x23, x9
-
     mov x25, #0
 
 sqrt_loop:
@@ -104,7 +100,7 @@ sqrt_done:
 
     adr x1, str_total
     mov x2, #len_total
-    mov x3, #N
+    mov x9, x19
     bl write_line
 
     adr x1, str_mean
