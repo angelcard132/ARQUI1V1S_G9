@@ -53,16 +53,10 @@ def configurar_mqtt(broker, port, client_id, state, db, actuadores):
     _db         = db
     _actuadores = actuadores
 
-    # Soporte dinámico para compatibilidad con Paho MQTT v1 y v2
-    if hasattr(mqtt, "CallbackAPIVersion"):
-        _client = mqtt.Client(
-            client_id=client_id,
-            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-        )
-    else:
-        _client = mqtt.Client(
-            client_id=client_id
-        )
+    _client = mqtt.Client(
+        client_id=client_id,
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+    )
     _client.on_connect    = _on_connect
     _client.on_disconnect = _on_disconnect
     _client.on_message    = _on_message
@@ -102,17 +96,14 @@ def publicar_estado_global(estado, modo, lecturas):
 
 
 def _on_connect(client, userdata, flags, rc, properties=None):
-    # rc puede ser un entero en v1 o un objeto ReasonCode en v2
-    code = rc.value if hasattr(rc, "value") else rc
-    if code == 0:
-        print(f"[MQTT] Conectado al broker")
-        client.subscribe(TOPIC_REMOTO, qos=1)
-        client.subscribe(TOPIC_MANUAL, qos=1)
-        client.subscribe(TOPIC_ARM64_REQUEST, qos=1)   
-        client.subscribe(f"{BASE}/control/arm64", qos=1)
-        print(f"[MQTT] Suscrito a control/remoto, control/manual, arm64/request y control/arm64")
-    else:
-        print(f"[MQTT] Error de conexion: {code}")
+        if rc == 0:
+            print(f"[MQTT] Conectado al broker")
+            client.subscribe(TOPIC_REMOTO, qos=1)
+            client.subscribe(TOPIC_MANUAL, qos=1)
+            client.subscribe(TOPIC_ARM64_REQUEST, qos=1)   
+            print(f"[MQTT] Suscrito a control/remoto, control/manual y arm64/request")
+        else:
+            print(f"[MQTT] Error de conexion: {rc}")
 
 
 def _on_disconnect(client, userdata, rc, properties=None, reasonCode=None):
@@ -141,32 +132,27 @@ def _on_message(client, userdata, msg):
             cmd      = partes[1].strip().upper()
             _procesar_comando(actuador, cmd, "boton_fisico")
 
-    elif topic in (TOPIC_ARM64_REQUEST, f"{BASE}/control/arm64"):
+    elif topic == TOPIC_ARM64_REQUEST:
         try:
-            data    = json.loads(payload)
-            modulo  = data.get("modulo", "")
-            # Habilitar soporte para ambos formatos (columna y sensor)
-            columna = data.get("columna", data.get("sensor", ""))
-            origen  = data.get("origen", "dashboard")
+                data    = json.loads(payload)
+                modulo  = data.get("modulo", "")
+                columna = data.get("columna", "")
+                origen  = data.get("origen", "dashboard")
  
-            if not modulo or not columna:
-                print(f"[ARM64] Solicitud incompleta: modulo={modulo}, columna={columna}")
-                return
-
-            print(f"[ARM64] Solicitud: {modulo} sobre columna {columna} ({origen})")
+                print(f"[ARM64] Solicitud: {modulo} sobre columna {columna} ({origen})")
  
-            # Llamar al runner en un hilo para no bloquear MQTT
-            import threading
-            from arm64_runner import ejecutar_modulo_individual
-            from mongo_handler import guardar_arm64
+                # Llamar al runner en un hilo para no bloquear MQTT
+                import threading
+                from arm64_runner import ejecutar_modulo_individual
+                from mongo_handler import guardar_arm64
  
-            threading.Thread(
-                target=ejecutar_modulo_individual,
-                args=(modulo, columna, publicar, guardar_arm64, print),
-                daemon=True,
-            ).start()
+                threading.Thread(
+                    target=ejecutar_modulo_individual,
+                    args=(modulo, columna, publicar, guardar_arm64, print),
+                    daemon=True,
+                ).start()
         except json.JSONDecodeError:
-            print(f"[ARM64] Payload no es JSON: {payload}")
+                print(f"[ARM64] Payload no es JSON: {payload}")
 def _procesar_comando(actuador, cmd, origen):
 
 
@@ -310,18 +296,50 @@ def _publicar_riego(area, activar, origen):
 
 
 def _guardar_comando(actuador, cmd, origen):
-    from mongo_handler import guardar_comando
-    guardar_comando(actuador, cmd, origen, _state.get("global", "NORMAL"))
+    if _db is None:
+        return
+    try:
+        _db["commands"].insert_one({
+            "timestamp": datetime.now(),
+            "actuador":  actuador,
+            "comando":   cmd,
+            "origen":    origen,
+            "estado":    _state.get("global", "NORMAL"),
+        })
+        print(f"[MongoDB] commands <- {actuador}:{cmd} ({origen})")
+    except Exception as e:
+        print(f"[MongoDB] Error en commands: {e}")
 
 
 def _guardar_actuador_log(actuador, accion, origen):
-    from mongo_handler import guardar_actuador_log
-    guardar_actuador_log(actuador, accion, origen, _state.get("global", "NORMAL"))
+    if _db is None:
+        return
+    try:
+        _db["actuator_logs"].insert_one({
+            "timestamp": datetime.now(),
+            "actuador":  actuador,
+            "accion":    accion,
+            "origen":    origen,
+            "estado":    _state.get("global", "NORMAL"),
+        })
+    except Exception as e:
+        print(f"[MongoDB] Error en actuator_logs: {e}")
 
 
 def _guardar_evento(tipo, valor, origen):
-    from mongo_handler import registrar_evento
-    registrar_evento(tipo, valor, origen, _state.get("global", "NORMAL"))
+    if _db is None:
+        return
+    try:
+        _db["events"].insert_one({
+            "timestamp": datetime.now(),
+            "tipo":      tipo,
+            "valor":     str(valor),
+            "origen":    origen,
+            "estado":    _state.get("global", "NORMAL"),
+        })
+    except Exception as e:
+        print(f"[MongoDB] Error en events: {e}")
+
 
 def _ts():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
