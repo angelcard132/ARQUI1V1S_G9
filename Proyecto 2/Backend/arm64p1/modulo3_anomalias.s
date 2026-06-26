@@ -1,6 +1,3 @@
-
-//Modulo anomalias 
-// seccion data 
 .section .data
 
 out_filename: .asciz "resultado_anomalias.txt"
@@ -36,27 +33,29 @@ len_risk_high = . - risk_high
 
 col_buf: .space 32
 ascii_buf: .space 32
-values: .space 240
+values: .space 8192
 
 .section .text
 .global _start
 
-//variables 
-.equ N, 30
 .equ COLUMNA, 1
 
-//inicio 
 _start:
     bl read_csv
     cmp x0, #0
     blt error_exit
+
+    bl count_rows
+    cmp x0, #1
+    blt error_exit
+    mov x29, x0
 
     adr x27, values
     mov x19, #0
     mov x28, #0
 
 read_values:
-    cmp x19, #N
+    cmp x19, x29
     bge calc_mean
 
     mov x0, x19
@@ -77,14 +76,13 @@ read_values:
     b read_values
 
 calc_mean:
-    mov x9, #N
-    sdiv x22, x28, x9
+    sdiv x22, x28, x29
 
     mov x19, #0
     mov x23, #0
 
 variance_loop:
-    cmp x19, #N
+    cmp x19, x29
     bge calc_variance
 
     ldr x10, [x27, x19, lsl #3]
@@ -96,8 +94,7 @@ variance_loop:
     b variance_loop
 
 calc_variance:
-    mov x9, #N
-    sdiv x24, x23, x9
+    sdiv x24, x23, x29
 
     mov x25, #0
 
@@ -116,7 +113,7 @@ sqrt_done:
     mov x26, #0
 
 anomaly_loop:
-    cmp x19, #N
+    cmp x19, x29
     bge write_output
 
     ldr x10, [x27, x19, lsl #3]
@@ -153,7 +150,7 @@ write_output:
 
     adr x1, str_total
     mov x2, #len_total
-    mov x3, #N
+    mov x3, x29
     bl write_number_line
 
     adr x1, str_mean
@@ -238,6 +235,3 @@ error_exit:
     mov x0, #1
     mov x8, #93
     svc #0
-
-
-
