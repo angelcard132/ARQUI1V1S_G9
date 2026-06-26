@@ -91,3 +91,36 @@ def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, l
         log_fn(f"[ARM64] Archivo de salida no encontrado: {out_path}")
     except Exception as e:
         log_fn(f"[ARM64] Error inesperado: {e}")
+
+
+def ejecutar_todos_los_modulos(publicar_fn, guardar_arm64_fn, log_fn=print):
+    if not os.path.exists(CSV_PATH):
+        log_fn(f"[ARM64] {CSV_PATH} no existe — no se pueden ejecutar los modulos")
+        return
+
+    for modulo, salida in MODULOS.items():
+        bin_path = os.path.join(ARM64_DIR, modulo)
+        out_path = os.path.join(ARM64_DIR, salida)
+        if not os.path.exists(bin_path):
+            log_fn(f"[ARM64] Binario no encontrado: {bin_path}")
+            continue
+        try:
+            # Ejecucion sin argumentos para compatibilidad por lote (como en backendantiguo.py)
+            subprocess.run([bin_path], timeout=15, check=True)
+            resultado = {}
+            if os.path.exists(out_path):
+                with open(out_path) as f:
+                    for linea in f:
+                        if "=" in linea:
+                            k, v = linea.strip().split("=", 1)
+                            resultado[k.strip()] = v.strip()
+                log_fn(f"[ARM64] {modulo} ejecutado de forma automatica: {resultado}")
+                
+                # Publicar por MQTT
+                topic = f"invernadero/G9/arm64/{modulo}"
+                publicar_fn(topic, json.dumps(resultado), qos=1)
+                
+                # Guardar en MongoDB
+                guardar_arm64_fn(modulo, resultado)
+        except Exception as e:
+            log_fn(f"[ARM64 Error] Error al ejecutar modulo {modulo}: {e}")

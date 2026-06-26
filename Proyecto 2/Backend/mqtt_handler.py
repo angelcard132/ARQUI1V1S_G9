@@ -53,10 +53,16 @@ def configurar_mqtt(broker, port, client_id, state, db, actuadores):
     _db         = db
     _actuadores = actuadores
 
-    _client = mqtt.Client(
-        client_id=client_id,
-        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-    )
+    # Soporte dinámico para compatibilidad con Paho MQTT v1 y v2
+    if hasattr(mqtt, "CallbackAPIVersion"):
+        _client = mqtt.Client(
+            client_id=client_id,
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        )
+    else:
+        _client = mqtt.Client(
+            client_id=client_id
+        )
     _client.on_connect    = _on_connect
     _client.on_disconnect = _on_disconnect
     _client.on_message    = _on_message
@@ -96,14 +102,17 @@ def publicar_estado_global(estado, modo, lecturas):
 
 
 def _on_connect(client, userdata, flags, rc, properties=None):
-        if rc == 0:
-            print(f"[MQTT] Conectado al broker")
-            client.subscribe(TOPIC_REMOTO, qos=1)
-            client.subscribe(TOPIC_MANUAL, qos=1)
-            client.subscribe(TOPIC_ARM64_REQUEST, qos=1)   
-            print(f"[MQTT] Suscrito a control/remoto, control/manual y arm64/request")
-        else:
-            print(f"[MQTT] Error de conexion: {rc}")
+    # rc puede ser un entero en v1 o un objeto ReasonCode en v2
+    code = rc.value if hasattr(rc, "value") else rc
+    if code == 0:
+        print(f"[MQTT] Conectado al broker")
+        client.subscribe(TOPIC_REMOTO, qos=1)
+        client.subscribe(TOPIC_MANUAL, qos=1)
+        client.subscribe(TOPIC_ARM64_REQUEST, qos=1)   
+        client.subscribe(f"{BASE}/control/arm64", qos=1)
+        print(f"[MQTT] Suscrito a control/remoto, control/manual, arm64/request y control/arm64")
+    else:
+        print(f"[MQTT] Error de conexion: {code}")
 
 
 def _on_disconnect(client, userdata, rc, properties=None, reasonCode=None):
@@ -132,27 +141,32 @@ def _on_message(client, userdata, msg):
             cmd      = partes[1].strip().upper()
             _procesar_comando(actuador, cmd, "boton_fisico")
 
-    elif topic == TOPIC_ARM64_REQUEST:
+    elif topic in (TOPIC_ARM64_REQUEST, f"{BASE}/control/arm64"):
         try:
-                data    = json.loads(payload)
-                modulo  = data.get("modulo", "")
-                columna = data.get("columna", "")
-                origen  = data.get("origen", "dashboard")
+            data    = json.loads(payload)
+            modulo  = data.get("modulo", "")
+            # Habilitar soporte para ambos formatos (columna y sensor)
+            columna = data.get("columna", data.get("sensor", ""))
+            origen  = data.get("origen", "dashboard")
  
-                print(f"[ARM64] Solicitud: {modulo} sobre columna {columna} ({origen})")
+            if not modulo or not columna:
+                print(f"[ARM64] Solicitud incompleta: modulo={modulo}, columna={columna}")
+                return
+
+            print(f"[ARM64] Solicitud: {modulo} sobre columna {columna} ({origen})")
  
-                # Llamar al runner en un hilo para no bloquear MQTT
-                import threading
-                from arm64_runner import ejecutar_modulo_individual
-                from mongo_handler import guardar_arm64
+            # Llamar al runner en un hilo para no bloquear MQTT
+            import threading
+            from arm64_runner import ejecutar_modulo_individual
+            from mongo_handler import guardar_arm64
  
-                threading.Thread(
-                    target=ejecutar_modulo_individual,
-                    args=(modulo, columna, publicar, guardar_arm64, print),
-                    daemon=True,
-                ).start()
+            threading.Thread(
+                target=ejecutar_modulo_individual,
+                args=(modulo, columna, publicar, guardar_arm64, print),
+                daemon=True,
+            ).start()
         except json.JSONDecodeError:
-                print(f"[ARM64] Payload no es JSON: {payload}")
+            print(f"[ARM64] Payload no es JSON: {payload}")
 def _procesar_comando(actuador, cmd, origen):
 
 
