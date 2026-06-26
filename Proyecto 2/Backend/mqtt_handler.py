@@ -53,7 +53,6 @@ def configurar_mqtt(broker, port, client_id, state, db, actuadores):
     _db         = db
     _actuadores = actuadores
 
-    # Soporte dinámico para compatibilidad con Paho MQTT v1 y v2
     if hasattr(mqtt, "CallbackAPIVersion"):
         _client = mqtt.Client(
             client_id=client_id,
@@ -72,7 +71,7 @@ def configurar_mqtt(broker, port, client_id, state, db, actuadores):
     return _client
 
 
-def publicar(topic_key_or_full, payload, retain=False, qos=1):
+def publicar(topic_key_or_full, payload, retain=False, qos=0):
 
     if _client and _client.is_connected():
         topic = T.get(topic_key_or_full, topic_key_or_full)
@@ -102,7 +101,6 @@ def publicar_estado_global(estado, modo, lecturas):
 
 
 def _on_connect(client, userdata, flags, rc, properties=None):
-    # rc puede ser un entero en v1 o un objeto ReasonCode en v2
     code = rc.value if hasattr(rc, "value") else rc
     if code == 0:
         print(f"[MQTT] Conectado al broker")
@@ -145,7 +143,6 @@ def _on_message(client, userdata, msg):
         try:
             data    = json.loads(payload)
             modulo  = data.get("modulo", "")
-            # Habilitar soporte para ambos formatos (columna y sensor)
             columna = data.get("columna", data.get("sensor", ""))
             origen  = data.get("origen", "dashboard")
  
@@ -155,7 +152,6 @@ def _on_message(client, userdata, msg):
 
             print(f"[ARM64] Solicitud: {modulo} sobre columna {columna} ({origen})")
  
-            # Llamar al runner en un hilo para no bloquear MQTT
             import threading
             from arm64_runner import ejecutar_modulo_individual
             from mongo_handler import guardar_arm64
@@ -170,7 +166,6 @@ def _on_message(client, userdata, msg):
 def _procesar_comando(actuador, cmd, origen):
 
 
-    # Validar que el actuador y comando sean conocidos
     if actuador not in COMANDOS_VALIDOS:
         print(f"[Cmd] Actuador desconocido: '{actuador}'")
         return

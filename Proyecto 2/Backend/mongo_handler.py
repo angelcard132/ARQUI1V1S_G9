@@ -7,7 +7,6 @@ import time
 MONGO_URI = "mongodb+srv://UserDB1:PasswordDB1@cluster0.2qomnft.mongodb.net/?appName=Cluster0"
 DB_NAME = "invernadero"
 
-# Cada cuanto se manda a MongoDB. El backend/MQTT puede seguir trabajando mas rapido.
 MONGO_FLUSH_INTERVAL = 20
 
 _db = None
@@ -16,7 +15,6 @@ _worker = None
 _stop_worker = threading.Event()
 _queue_lock = threading.Lock()
 
-# Cola en memoria para no bloquear el ciclo de sensores esperando respuesta de MongoDB.
 _pending_inserts = {
     "sensor_readings": [],
     "events": [],
@@ -30,7 +28,14 @@ _pending_status = None
 def conectar():
     global _db, _client
     try:
-        _client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        _client = MongoClient(
+            MONGO_URI,
+            serverSelectionTimeoutMS=2000,
+            socketTimeoutMS=2000,
+            connectTimeoutMS=2000,
+            maxPoolSize=1,
+            heartbeatFrequencyMS=30000
+        )
         _client.server_info()  # comprueba conexion solo al iniciar
         _db = _client[DB_NAME]
         print(f"[MongoDB] Conectado a '{DB_NAME}'")
@@ -76,7 +81,10 @@ def _encolar_insert(coleccion: str, documento: dict):
     if _db is None:
         return
     with _queue_lock:
-        _pending_inserts.setdefault(coleccion, []).append(documento)
+        queue = _pending_inserts.setdefault(coleccion, [])
+        queue.append(documento)
+        if len(queue) > 100:
+            queue.pop(0)  
 
 
 def _encolar_estado(documento: dict):
@@ -84,7 +92,6 @@ def _encolar_estado(documento: dict):
     if _db is None:
         return
     with _queue_lock:
-        # Para el estado actual no interesa guardar 10 copias viejas; solo la ultima.
         _pending_status = documento
 
 
