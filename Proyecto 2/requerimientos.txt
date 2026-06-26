@@ -5,3 +5,8 @@ pip install adafruit-circuitpython-dht
 pip install adafruit-blinka
 pip install RPLCD
 pip install RPi.GPIO
+
+aarch64-linux-gnu-as -g -o motor_main.o motor_main.s
+aarch64-linux-gnu-as -g -o motor_indicadores.o motor_indicadores.s
+aarch64-linux-gnu-as -g -o motor_salida.o motor_salida.s
+aarch64-linux-gnu-ld -o motor_vivo_nuevo motor_main.o motor_indicadores.o motor_salida.o
