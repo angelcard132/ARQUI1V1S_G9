@@ -15,6 +15,16 @@ function cls(v, warn, danger) {
   return '#3a6b1a'
 }
 
+function getCmdStyle(cmd) {
+  if (['ON', 'AUTOMATICO', 'RESET', 'SILENCIAR'].includes(cmd)) {
+    return { background: '#d6e8c4', color: '#3a6b1a' }
+  }
+  if (['MANUAL'].includes(cmd)) {
+    return { background: '#fce4c8', color: '#b86b0a' }
+  }
+  return { background: '#f5d0d0', color: '#9b2020' }
+}
+
 
 /*  Panel wrapper  */
 function Panel({ title, icon, children, right }) {
@@ -505,7 +515,7 @@ export default function Dashboard() {
                         <td style={{ padding: '6px 8px', fontFamily: 'DM Mono,monospace', color: '#8a9280', fontSize: 11 }}>{c.hora}</td>
                         <td style={{ padding: '6px 8px', color: '#4a5240' }}>{c.actuador}</td>
                         <td style={{ padding: '6px 8px' }}>
-                          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, fontFamily: 'DM Mono,monospace', fontWeight: 500, background: c.cmd === 'ON' ? '#d6e8c4' : '#f5d0d0', color: c.cmd === 'ON' ? '#3a6b1a' : '#9b2020' }}>
+                          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, fontFamily: 'DM Mono,monospace', fontWeight: 500, ...getCmdStyle(c.cmd) }}>
                             {c.cmd}
                           </span>
                         </td>

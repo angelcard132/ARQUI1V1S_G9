@@ -94,11 +94,15 @@ estado = {
     "suelo1": None,
     "suelo2": None,
     "bomba": False,
+    "riego1": False,
+    "riego2": False,
     "ventilador": False,
     "luces": False,
     "buzzer": False,
 }
 ultimas_lecturas = deque(maxlen=5)
+lecturas_30 = deque(maxlen=30)
+ultimo_csv = 0
 
 db = conectar()
 BROKER = "broker.emqx.io"
@@ -106,7 +110,7 @@ PORT = 1883
 CLIENT_ID = "G9_raspberry_backend"
 
 actuadores_mqtt = {
-    "activar_riego": lambda area, activar, origen="mqtt": set_bomba(activar),
+    "activar_riego": lambda area, activar, origen="mqtt": set_bomba_area(area, activar),
     "set_ventilador": lambda activar, origen="mqtt": set_ventilador(activar),
     "set_luces": lambda activar, origen="mqtt": set_luces(activar),
     "set_alarma": lambda activar, origen="mqtt": set_buzzer(activar),
@@ -134,6 +138,7 @@ ultimo_mongo = 0
 ultimo_mqtt = 0
 
 lock = threading.Lock()
+estado["lock"] = lock
 
 ultimo_riego = 0
 riego_en_curso = False
@@ -153,9 +158,21 @@ def set_bomba(on):
         if estado["bomba"] == on:
             return
         estado["bomba"] = on
+        estado["riego1"] = on
+        estado["riego2"] = on
 
     enviar_arduino(CMD_BOMBA_ON if on else CMD_BOMBA_OFF)
     print(f"[BOMBA] {'ON' if on else 'OFF'}")
+
+
+def set_bomba_area(area, on):
+    with lock:
+        estado[f"riego{area}"] = on
+        bomba_on = estado["riego1"] or estado["riego2"]
+        estado["bomba"] = bomba_on
+
+    enviar_arduino(CMD_BOMBA_ON if bomba_on else CMD_BOMBA_OFF)
+    print(f"[BOMBA] Riego Area {area} -> {'ON' if on else 'OFF'}")
 
 
 def set_ventilador(on):
@@ -314,6 +331,22 @@ def automatismos():
     emergencia = False
     advertencia = False
 
+    if modo == "MANUAL":
+        if gas is not None and gas >= UMBRAL_GAS_EMERG:
+            set_ventilador(True)
+            set_buzzer(True)
+            emergencia = True
+
+        with lock:
+            if emergencia:
+                estado["global"] = "EMERGENCIA"
+            else:
+                estado["global"] = "MODO_MANUAL"
+            estado_global = estado["global"]
+        set_leds(estado_global)
+        return
+
+    # Modo AUTOMATICO
     if gas is not None:
         if gas >= UMBRAL_GAS_WARN:
             set_buzzer(True)
@@ -349,8 +382,6 @@ def automatismos():
             estado["global"] = "EMERGENCIA"
         elif estado["bomba"]:
             estado["global"] = "RIEGO_ACTIVO"
-        elif modo == "MANUAL":
-            estado["global"] = "MODO_MANUAL"
         elif advertencia:
             estado["global"] = "ADVERTENCIA"
         else:
@@ -469,6 +500,26 @@ def imprimir_estado():
     )
 
 
+def guardar_lecturas_csv():
+    try:
+        with open("lecturas.csv", mode="w", encoding="utf-8") as f:
+            f.write("ID,TEMP,HUM_AIRE,HUM_SUELO_1,HUM_SUELO_2,LUZ,GAS,RIEGO_1,RIEGO_2\n")
+            for idx, item in enumerate(lecturas_30, start=1):
+                temp = item.get("temp") if item.get("temp") is not None else 0
+                hum = item.get("hum") if item.get("hum") is not None else 0
+                suelo1 = item.get("suelo1") if item.get("suelo1") is not None else 0
+                suelo2 = item.get("suelo2") if item.get("suelo2") is not None else 0
+                luz = item.get("luz") if item.get("luz") is not None else 0
+                gas = item.get("gas") if item.get("gas") is not None else 0
+                riego1 = 1 if item.get("riego1") or item.get("bomba") else 0
+                riego2 = 1 if item.get("riego2") or (item.get("bomba") and not item.get("riego1")) else 0
+                f.write(f"{idx},{int(round(temp))},{int(round(hum))},{int(round(suelo1))},{int(round(suelo2))},{int(round(luz))},{int(round(gas))},{riego1},{riego2}\n")
+            f.write("$\n")
+        print(f"[CSV] lecturas.csv actualizado con {len(lecturas_30)} registros.")
+    except Exception as e:
+        print(f"[CSV ERROR] {e}")
+
+
 try:
     print("=== PRUEBA ENUNCIADO ACTUALIZADA ===")
     print("Gas >= 80  -> buzzer ON")
@@ -524,6 +575,23 @@ try:
                 **lectura,
                 **actuadores,
             })
+
+            if e["temp"] is not None:
+                lecturas_30.append({
+                    "temp": e["temp"],
+                    "hum": e["hum"],
+                    "suelo1": e["suelo1"],
+                    "suelo2": e["suelo2"],
+                    "luz": e["luz"],
+                    "gas": e["gas"],
+                    "bomba": e["bomba"],
+                    "riego1": e["riego1"],
+                    "riego2": e["riego2"],
+                })
+
+            if len(lecturas_30) == 30 and ahora - ultimo_csv >= 5:
+                guardar_lecturas_csv()
+                ultimo_csv = ahora
 
             if ahora - ultimo_lcd >= 3:
                 actualizar_lcd()
