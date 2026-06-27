@@ -1,7 +1,7 @@
 import React from 'react'
 import Arm64Selector from '../components/Arm64Selector'
 import { useInvernadero } from '../context/InvernaderoContext'
-import { THRESHOLDS }     from '../lib/config'
+import { THRESHOLDS } from '../lib/config'
 import {
   LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
@@ -57,7 +57,7 @@ function ABtn({ icon, label, on, onPress, color = '#3a6b1a' }) {
       onClick={onPress}
       style={{
         ...s.abtn,
-        background:  on ? color + '15' : '#f5f2eb',
+        background: on ? color + '15' : '#f5f2eb',
         borderColor: on ? color + '40' : 'rgba(26,28,22,0.09)',
       }}
     >
@@ -74,9 +74,9 @@ function ABtn({ icon, label, on, onPress, color = '#3a6b1a' }) {
 
 /*  Suelo bar  */
 function SueloBar({ area, valor, on, onRiego }) {
-  const pct    = valor !== null ? Math.min(Math.max(valor, 0), 100) : 0
+  const pct = valor !== null ? Math.min(Math.max(valor, 0), 100) : 0
   const estado = valor === null ? '—' : valor < 35 ? 'SECO' : valor > 80 ? 'SATURADO' : 'NORMAL'
-  const color  = estado === 'SECO' ? '#b86b0a' : estado === 'SATURADO' ? '#9b2020' : '#3a6b1a'
+  const color = estado === 'SECO' ? '#b86b0a' : estado === 'SATURADO' ? '#9b2020' : '#3a6b1a'
   const accent = area === 1 ? '#3a6b1a' : '#0e6e56'
 
   return (
@@ -171,11 +171,13 @@ function EvItem({ ev }) {
 }
 
 /*  ARM64 card  */
-function ArmCard({ archivo, titulo, children, ok }) {
+function ArmCard({ archivo, titulo, children, ok, columna }) {
   return (
     <div style={s.armCard}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-        <span style={s.armFile}>{archivo}</span>
+        <span style={s.armFile}>
+          {archivo} {columna ? `(${columna})` : ''}
+        </span>
         <span style={{ ...s.armBadge, background: ok ? '#d6e8c4' : '#ede8dc', color: ok ? '#3a6b1a' : '#8a9280' }}>
           {ok ? 'OK' : 'Pendiente'}
         </span>
@@ -207,12 +209,12 @@ export default function Dashboard() {
       <section id="dashboard">
         <div style={s.secLabel}>Sensores ambientales</div>
         <div style={s.row6}>
-          <SCard icon="ti-temperature" label="Temperatura"  value={state.temp}   unit="°C"  color={cls(state.temp, T.TEMP_ALTA)} />
-          <SCard icon="ti-droplets"    label="Humedad aire" value={state.hum}    unit="%"   color={cls(state.hum, T.HUM_ALTA)} />
-          <SCard icon="ti-sun"         label="Luz"          value={state.luz}    unit="lux" color={state.luz < T.LUZ_BAJA ? '#b86b0a' : '#3a6b1a'} />
-          <SCard icon="ti-cloud"       label="Gas / humo"   value={state.gas}    unit="ppm" color={cls(state.gas, T.GAS_WARN, T.GAS_EMRG)} />
-          <SCard icon="ti-timeline"    label="Lecturas"     value={state.totalLecturas} />
-          <SCard icon="ti-clock"       label="Ultima"       value={state.ultimaLectura || '—'} color={state.mqttConnected ? '#3a6b1a' : '#8a9280'} />
+          <SCard icon="ti-temperature" label="Temperatura" value={state.temp} unit="°C" color={cls(state.temp, T.TEMP_ALTA)} />
+          <SCard icon="ti-droplets" label="Humedad aire" value={state.hum} unit="%" color={cls(state.hum, T.HUM_ALTA)} />
+          <SCard icon="ti-sun" label="Luz" value={state.luz} unit="lux" color={state.luz < T.LUZ_BAJA ? '#b86b0a' : '#3a6b1a'} />
+          <SCard icon="ti-cloud" label="Gas / humo" value={state.gas} unit="ppm" color={cls(state.gas, T.GAS_WARN, T.GAS_EMRG)} />
+          <SCard icon="ti-timeline" label="Lecturas" value={state.totalLecturas} />
+          <SCard icon="ti-clock" label="Ultima" value={state.ultimaLectura || '—'} color={state.mqttConnected ? '#3a6b1a' : '#8a9280'} />
         </div>
       </section>
 
@@ -228,14 +230,14 @@ export default function Dashboard() {
 
         <Panel title="Actuadores" icon="ti-adjustments-horizontal" id="actuadores">
           <div style={s.row4}>
-            <ABtn icon="ti-droplet"     label="Bomba"       on={state.riego1 || state.riego2} color="#3a6b1a" onPress={() => publicar('riego', (state.riego1 || state.riego2) ? 'OFF' : 'ON')} />
-            <ABtn icon="ti-wind"        label="Ventilador"  on={state.ventilador}              color="#0e6e56" onPress={() => publicar('ventilador', state.ventilador ? 'OFF' : 'ON')} />
-            <ABtn icon="ti-bulb"        label="Luces"       on={state.luces}                   color="#b86b0a" onPress={() => publicar('luces', state.luces ? 'OFF' : 'ON')} />
-            <ABtn icon="ti-bell"        label="Alarma"      on={state.alarma}                  color="#9b2020" onPress={() => publicar('alarma', 'SILENCIAR')} />
-            <ABtn icon="ti-circle-check" label="LED verde"  on={state.estadoGlobal === 'NORMAL'} color="#3a6b1a" />
-            <ABtn icon="ti-circle"      label="LED amarillo" on={['ADVERTENCIA','RIEGO_ACTIVO','MODO_MANUAL'].includes(state.estadoGlobal)} color="#b86b0a" />
-            <ABtn icon="ti-alert-circle" label="LED rojo"   on={state.estadoGlobal === 'EMERGENCIA'} color="#9b2020" />
-            <ABtn icon="ti-plug"        label="Raspberry online"   on={state.mqttConnected} color="#3a6b1a" />
+            <ABtn icon="ti-droplet" label="Bomba" on={state.riego1 || state.riego2} color="#3a6b1a" onPress={() => publicar('riego', (state.riego1 || state.riego2) ? 'OFF' : 'ON')} />
+            <ABtn icon="ti-wind" label="Ventilador" on={state.ventilador} color="#0e6e56" onPress={() => publicar('ventilador', state.ventilador ? 'OFF' : 'ON')} />
+            <ABtn icon="ti-bulb" label="Luces" on={state.luces} color="#b86b0a" onPress={() => publicar('luces', state.luces ? 'OFF' : 'ON')} />
+            <ABtn icon="ti-bell" label="Alarma" on={state.alarma} color="#9b2020" onPress={() => publicar('alarma', 'SILENCIAR')} />
+            <ABtn icon="ti-circle-check" label="LED verde" on={state.estadoGlobal === 'NORMAL'} color="#3a6b1a" />
+            <ABtn icon="ti-circle" label="LED amarillo" on={['ADVERTENCIA', 'RIEGO_ACTIVO', 'MODO_MANUAL'].includes(state.estadoGlobal)} color="#b86b0a" />
+            <ABtn icon="ti-alert-circle" label="LED rojo" on={state.estadoGlobal === 'EMERGENCIA'} color="#9b2020" />
+            <ABtn icon="ti-plug" label="Raspberry online" on={state.mqttConnected} color="#3a6b1a" />
           </div>
         </Panel>
       </div>
@@ -251,14 +253,14 @@ export default function Dashboard() {
         <Panel title="Control remoto" icon="ti-remote-control">
           <div style={s.row2ctrl}>
             {[
-              { label: 'Riego ON',        actuador: 'riego',      cmd: 'ON',        color: '#3a6b1a', icon: 'ti-droplet'     },
-              { label: 'Riego OFF',       actuador: 'riego',      cmd: 'OFF',       color: '#9b2020', icon: 'ti-droplet-off' },
-              { label: 'Ventilador ON',   actuador: 'ventilador', cmd: 'ON',        color: '#0e6e56', icon: 'ti-wind'        },
-              { label: 'Ventilador OFF',  actuador: 'ventilador', cmd: 'OFF',       color: '#9b2020', icon: 'ti-wind'        },
-              { label: 'Luces ON',        actuador: 'luces',      cmd: 'ON',        color: '#b86b0a', icon: 'ti-bulb'        },
-              { label: 'Luces OFF',       actuador: 'luces',      cmd: 'OFF',       color: '#9b2020', icon: 'ti-bulb-off'    },
-              { label: 'Silenciar alarma',actuador: 'alarma',     cmd: 'SILENCIAR', color: '#4a5240', icon: 'ti-bell-off'    },
-              { label: 'Reset estado',    actuador: 'global',     cmd: 'RESET',     color: '#185FA5', icon: 'ti-refresh'     },
+              { label: 'Riego ON', actuador: 'riego', cmd: 'ON', color: '#3a6b1a', icon: 'ti-droplet' },
+              { label: 'Riego OFF', actuador: 'riego', cmd: 'OFF', color: '#9b2020', icon: 'ti-droplet-off' },
+              { label: 'Ventilador ON', actuador: 'ventilador', cmd: 'ON', color: '#0e6e56', icon: 'ti-wind' },
+              { label: 'Ventilador OFF', actuador: 'ventilador', cmd: 'OFF', color: '#9b2020', icon: 'ti-wind' },
+              { label: 'Luces ON', actuador: 'luces', cmd: 'ON', color: '#b86b0a', icon: 'ti-bulb' },
+              { label: 'Luces OFF', actuador: 'luces', cmd: 'OFF', color: '#9b2020', icon: 'ti-bulb-off' },
+              { label: 'Silenciar alarma', actuador: 'alarma', cmd: 'SILENCIAR', color: '#4a5240', icon: 'ti-bell-off' },
+              { label: 'Reset estado', actuador: 'global', cmd: 'RESET', color: '#185FA5', icon: 'ti-refresh' },
             ].map(b => (
               <button key={b.label}
                 style={{ ...s.ctrlBtn, borderColor: b.color + '50', color: b.color }}
@@ -288,7 +290,7 @@ export default function Dashboard() {
                   <YAxis tick={{ fontSize: 8, fill: '#8a9280' }} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={{ background: '#faf8f2', border: '1px solid rgba(26,28,22,0.12)', borderRadius: 6, fontSize: 11 }} />
                   <Line type="monotone" dataKey="temp" stroke="#E85D24" strokeWidth={1.5} dot={false} connectNulls name="Temp °C" />
-                  <Line type="monotone" dataKey="hum"  stroke="#185FA5" strokeWidth={1.5} dot={false} connectNulls name="Hum %" />
+                  <Line type="monotone" dataKey="hum" stroke="#185FA5" strokeWidth={1.5} dot={false} connectNulls name="Hum %" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -319,7 +321,7 @@ export default function Dashboard() {
 
       {/* ARM64 + Eventos */}
       <div style={s.row2} id="arm64">
-       <Panel title="Analisis ARM64" icon="ti-cpu"
+        <Panel title="Analisis ARM64" icon="ti-cpu"
           right={<span style={{ fontSize: 10, color: '#8a9280', fontFamily: 'DM Mono,monospace' }}>5 modulos · lecturas.csv</span>}
         >
 
@@ -347,8 +349,8 @@ export default function Dashboard() {
               ok={!!state.arm64.media}
               columna={state.arm64.media?.columna}
             >
-              <ArmFila label="Media"      value={state.arm64.media?.val}   color="#3a6b1a" />
-              <ArmFila label="Suma X"     value={state.arm64.media?.sum} />
+              <ArmFila label="Media" value={state.arm64.media?.val} color="#3a6b1a" />
+              <ArmFila label="Suma X" value={state.arm64.media?.sum} />
               <ArmFila label="Suma pesos" value={state.arm64.media?.pesos} />
             </ArmCard>
 
@@ -358,7 +360,7 @@ export default function Dashboard() {
               ok={!!state.arm64.varianza}
               columna={state.arm64.varianza?.columna}
             >
-              <ArmFila label="Media"    value={state.arm64.varianza?.media} />
+              <ArmFila label="Media" value={state.arm64.varianza?.media} />
               <ArmFila label="Varianza" value={state.arm64.varianza?.varianza} />
               <ArmFila label="Desv. est." value={state.arm64.varianza?.desv} color="#3a6b1a" />
             </ArmCard>
@@ -369,15 +371,15 @@ export default function Dashboard() {
               ok={!!state.arm64.anomalias}
               columna={state.arm64.anomalias?.columna}
             >
-              <ArmFila label="Media"     value={state.arm64.anomalias?.media} />
+              <ArmFila label="Media" value={state.arm64.anomalias?.media} />
               <ArmFila label="Anomalias" value={state.arm64.anomalias?.cantidad} color="#b86b0a" />
               <ArmFila
                 label="Riesgo"
                 value={state.arm64.anomalias?.riesgo}
                 color={
-                  state.arm64.anomalias?.riesgo === 'HIGH'   ? '#9b2020' :
-                  state.arm64.anomalias?.riesgo === 'MEDIUM' ? '#b86b0a' :
-                  '#3a6b1a'
+                  state.arm64.anomalias?.riesgo === 'HIGH' ? '#9b2020' :
+                    state.arm64.anomalias?.riesgo === 'MEDIUM' ? '#b86b0a' :
+                      '#3a6b1a'
                 }
               />
             </ArmCard>
@@ -388,9 +390,9 @@ export default function Dashboard() {
               ok={!!state.arm64.prediccion}
               columna={state.arm64.prediccion?.columna}
             >
-              <ArmFila label="Inicial"   value={state.arm64.prediccion?.inicial} />
-              <ArmFila label="Final"     value={state.arm64.prediccion?.final} />
-              <ArmFila label="Cambio"    value={state.arm64.prediccion?.cambio} />
+              <ArmFila label="Inicial" value={state.arm64.prediccion?.inicial} />
+              <ArmFila label="Final" value={state.arm64.prediccion?.final} />
+              <ArmFila label="Cambio" value={state.arm64.prediccion?.cambio} />
               <ArmFila label="Siguiente" value={state.arm64.prediccion?.siguiente} color="#3a6b1a" />
             </ArmCard>
 
@@ -409,16 +411,15 @@ export default function Dashboard() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <i
-                        className={`ti ${
-                          state.arm64.tendencia.trend === 'UP'   ? 'ti-trending-up' :
-                          state.arm64.tendencia.trend === 'DOWN' ? 'ti-trending-down' :
-                          'ti-minus'
-                        }`}
+                        className={`ti ${state.arm64.tendencia.trend === 'UP' ? 'ti-trending-up' :
+                            state.arm64.tendencia.trend === 'DOWN' ? 'ti-trending-down' :
+                              'ti-minus'
+                          }`}
                         style={{
                           fontSize: 22,
-                          color: state.arm64.tendencia.trend === 'UP'   ? '#3a6b1a' :
-                                 state.arm64.tendencia.trend === 'DOWN' ? '#9b2020' :
-                                 '#8a9280',
+                          color: state.arm64.tendencia.trend === 'UP' ? '#3a6b1a' :
+                            state.arm64.tendencia.trend === 'DOWN' ? '#9b2020' :
+                              '#8a9280',
                         }}
                       />
                       <span style={{
@@ -429,9 +430,9 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <ArmFila label="Incrementos"    value={state.arm64.tendencia.incrementos} />
-                      <ArmFila label="Decrementos"    value={state.arm64.tendencia.decrementos} />
-                      <ArmFila label="Racha max"      value={state.arm64.tendencia.racha} />
+                      <ArmFila label="Incrementos" value={state.arm64.tendencia.incrementos} />
+                      <ArmFila label="Decrementos" value={state.arm64.tendencia.decrementos} />
+                      <ArmFila label="Racha max" value={state.arm64.tendencia.racha} />
                       <ArmFila label="Dif. acumulada" value={state.arm64.tendencia.acum} />
                     </div>
                   </div>
@@ -458,17 +459,17 @@ export default function Dashboard() {
         <Panel title="MQTT topics en vivo" icon="ti-antenna">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {[
-              { label: 'sensores/temperatura',         val: state.temp,         unit: '°C'  },
-              { label: 'sensores/humedad_ambiente',    val: state.hum,          unit: '%'   },
-              { label: 'sensores/humedad_suelo_area1', val: state.suelo1,       unit: '%'   },
-              { label: 'sensores/humedad_suelo_area2', val: state.suelo2,       unit: '%'   },
-              { label: 'sensores/luz',                 val: state.luz,          unit: 'lux' },
-              { label: 'sensores/gas',                 val: state.gas,          unit: 'ppm' },
-              { label: 'actuadores/riego_area1',       val: state.riego1,       unit: ''    },
-              { label: 'actuadores/ventilador',        val: state.ventilador,   unit: ''    },
-              { label: 'actuadores/luces',             val: state.luces,        unit: ''    },
-              { label: 'actuadores/alarma',            val: state.alarma,       unit: ''    },
-              { label: 'estado/global',                val: state.estadoGlobal, unit: ''    },
+              { label: 'sensores/temperatura', val: state.temp, unit: '°C' },
+              { label: 'sensores/humedad_ambiente', val: state.hum, unit: '%' },
+              { label: 'sensores/humedad_suelo_area1', val: state.suelo1, unit: '%' },
+              { label: 'sensores/humedad_suelo_area2', val: state.suelo2, unit: '%' },
+              { label: 'sensores/luz', val: state.luz, unit: 'lux' },
+              { label: 'sensores/gas', val: state.gas, unit: 'ppm' },
+              { label: 'actuadores/riego_area1', val: state.riego1, unit: '' },
+              { label: 'actuadores/ventilador', val: state.ventilador, unit: '' },
+              { label: 'actuadores/luces', val: state.luces, unit: '' },
+              { label: 'actuadores/alarma', val: state.alarma, unit: '' },
+              { label: 'estado/global', val: state.estadoGlobal, unit: '' },
             ].map(t => {
               const hasVal = t.val !== null && t.val !== undefined
               const display = typeof t.val === 'boolean' ? (t.val ? 'ON' : 'OFF') : (hasVal ? `${t.val}${t.unit ? ' ' + t.unit : ''}` : '—')
@@ -493,7 +494,7 @@ export default function Dashboard() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: 'DM Sans,system-ui,sans-serif' }}>
                   <thead>
                     <tr>
-                      {['Hora','Actuador','Cmd','Origen'].map(h => (
+                      {['Hora', 'Actuador', 'Cmd', 'Origen'].map(h => (
                         <th key={h} style={{ textAlign: 'left', padding: '5px 8px', color: '#8a9280', fontSize: 10, textTransform: 'uppercase', borderBottom: '1px solid rgba(26,28,22,0.08)' }}>{h}</th>
                       ))}
                     </tr>
@@ -525,42 +526,42 @@ export default function Dashboard() {
 
 /*  Estilos  */
 const s = {
-  secLabel:   { fontSize: 11, color: '#8a9280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, fontFamily: 'DM Sans,system-ui,sans-serif' },
-  row6:       { display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 10 },
-  row4:       { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 },
-  row2:       { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 },
-  row2ctrl:   { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 },
-  scard:      { background: '#f5f2eb', border: '1px solid rgba(26,28,22,0.08)', borderRadius: 10, padding: '12px 14px' },
+  secLabel: { fontSize: 11, color: '#8a9280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, fontFamily: 'DM Sans,system-ui,sans-serif' },
+  row6: { display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 10 },
+  row4: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 },
+  row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 },
+  row2ctrl: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 },
+  scard: { background: '#f5f2eb', border: '1px solid rgba(26,28,22,0.08)', borderRadius: 10, padding: '12px 14px' },
   scardLabel: { fontSize: 10, color: '#8a9280', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'DM Sans,system-ui,sans-serif' },
-  scardVal:   { fontFamily: 'Fraunces,Georgia,serif', fontSize: 26, fontWeight: 500, lineHeight: 1, letterSpacing: '-0.02em' },
-  scardUnit:  { fontSize: 11, color: '#8a9280', fontFamily: 'DM Mono,monospace' },
-  panel:      { background: '#ffffff', border: '1px solid rgba(26,28,22,0.08)', borderRadius: 12, overflow: 'hidden' },
-  panelHead:  { padding: '10px 16px', borderBottom: '1px solid rgba(26,28,22,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  scardVal: { fontFamily: 'Fraunces,Georgia,serif', fontSize: 26, fontWeight: 500, lineHeight: 1, letterSpacing: '-0.02em' },
+  scardUnit: { fontSize: 11, color: '#8a9280', fontFamily: 'DM Mono,monospace' },
+  panel: { background: '#ffffff', border: '1px solid rgba(26,28,22,0.08)', borderRadius: 12, overflow: 'hidden' },
+  panelHead: { padding: '10px 16px', borderBottom: '1px solid rgba(26,28,22,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   panelTitle: { fontSize: 13, fontWeight: 500, color: '#1a1c16', fontFamily: 'DM Sans,system-ui,sans-serif' },
-  panelBody:  { padding: '14px 16px' },
-  suelo:      { display: 'flex', flexDirection: 'column' },
-  barTrack:   { height: 6, background: '#ede8dc', borderRadius: 3, overflow: 'hidden' },
-  barFill:    { height: '100%', borderRadius: 3 },
-  rBtn:       { display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 20, border: '1px solid', background: 'transparent', cursor: 'pointer', fontSize: 11, fontFamily: 'DM Sans,system-ui,sans-serif', transition: 'opacity 0.15s' },
-  abtn:       { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 6px', borderRadius: 10, border: '1px solid', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'DM Sans,system-ui,sans-serif' },
-  abtnIcon:   { width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  abtnLabel:  { fontSize: 10, color: '#4a5240', textAlign: 'center' },
-  abtnBadge:  { fontSize: 9, padding: '1px 7px', borderRadius: 20, fontWeight: 500, fontFamily: 'DM Mono,monospace' },
-  ctrlBtn:    { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderRadius: 7, border: '1px solid', background: 'transparent', cursor: 'pointer', fontSize: 11, fontFamily: 'DM Sans,system-ui,sans-serif', fontWeight: 500, transition: 'background 0.15s' },
-  lcd:        { background: '#1a2e0a', borderRadius: 6, padding: '12px 16px', border: '2px solid #2a4010' },
-  lcdLine:    { fontFamily: 'DM Mono,monospace', fontSize: 13, color: '#7ec84a', letterSpacing: '0.04em', lineHeight: 1.8, whiteSpace: 'pre' },
+  panelBody: { padding: '14px 16px' },
+  suelo: { display: 'flex', flexDirection: 'column' },
+  barTrack: { height: 6, background: '#ede8dc', borderRadius: 3, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 3 },
+  rBtn: { display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 20, border: '1px solid', background: 'transparent', cursor: 'pointer', fontSize: 11, fontFamily: 'DM Sans,system-ui,sans-serif', transition: 'opacity 0.15s' },
+  abtn: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 6px', borderRadius: 10, border: '1px solid', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'DM Sans,system-ui,sans-serif' },
+  abtnIcon: { width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  abtnLabel: { fontSize: 10, color: '#4a5240', textAlign: 'center' },
+  abtnBadge: { fontSize: 9, padding: '1px 7px', borderRadius: 20, fontWeight: 500, fontFamily: 'DM Mono,monospace' },
+  ctrlBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderRadius: 7, border: '1px solid', background: 'transparent', cursor: 'pointer', fontSize: 11, fontFamily: 'DM Sans,system-ui,sans-serif', fontWeight: 500, transition: 'background 0.15s' },
+  lcd: { background: '#1a2e0a', borderRadius: 6, padding: '12px 16px', border: '2px solid #2a4010' },
+  lcdLine: { fontFamily: 'DM Mono,monospace', fontSize: 13, color: '#7ec84a', letterSpacing: '0.04em', lineHeight: 1.8, whiteSpace: 'pre' },
   chartLabel: { fontSize: 11, color: '#8a9280', marginBottom: 6, fontFamily: 'DM Sans,system-ui,sans-serif' },
   chartEmpty: { fontSize: 11, color: '#8a9280', textAlign: 'center', padding: '20px 0', fontFamily: 'DM Sans,system-ui,sans-serif', fontStyle: 'italic' },
-  evItem:     { display: 'flex', alignItems: 'flex-start', gap: 7, padding: '6px 8px', borderRadius: 5, background: '#f5f2eb' },
-  evDot:      { width: 6, height: 6, borderRadius: '50%', marginTop: 4, flexShrink: 0 },
-  evText:     { flex: 1, fontSize: 12, color: '#1a1c16', fontFamily: 'DM Sans,system-ui,sans-serif', lineHeight: 1.4 },
-  evHora:     { fontSize: 10, color: '#8a9280', fontFamily: 'DM Mono,monospace', whiteSpace: 'nowrap' },
-  armCard:    { background: '#f5f2eb', border: '1px solid rgba(26,28,22,0.08)', borderRadius: 8, padding: '10px 12px' },
-  armFile:    { fontSize: 10, color: '#8a9280', fontFamily: 'DM Mono,monospace' },
-  armBadge:   { fontSize: 9, padding: '1px 7px', borderRadius: 20, fontWeight: 500, fontFamily: 'DM Mono,monospace' },
-  armTitulo:  { fontSize: 12, fontWeight: 500, color: '#1a1c16', fontFamily: 'DM Sans,system-ui,sans-serif' },
-  topicRow:   { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', borderRadius: 5, background: '#f5f2eb' },
-  topicDot:   { width: 5, height: 5, borderRadius: '50%', flexShrink: 0, transition: 'all 0.3s' },
-  topicName:  { fontSize: 10, color: '#8a9280', fontFamily: 'DM Mono,monospace' },
-  topicVal:   { fontSize: 11, fontWeight: 500, fontFamily: 'DM Mono,monospace' },
+  evItem: { display: 'flex', alignItems: 'flex-start', gap: 7, padding: '6px 8px', borderRadius: 5, background: '#f5f2eb' },
+  evDot: { width: 6, height: 6, borderRadius: '50%', marginTop: 4, flexShrink: 0 },
+  evText: { flex: 1, fontSize: 12, color: '#1a1c16', fontFamily: 'DM Sans,system-ui,sans-serif', lineHeight: 1.4 },
+  evHora: { fontSize: 10, color: '#8a9280', fontFamily: 'DM Mono,monospace', whiteSpace: 'nowrap' },
+  armCard: { background: '#f5f2eb', border: '1px solid rgba(26,28,22,0.08)', borderRadius: 8, padding: '10px 12px' },
+  armFile: { fontSize: 10, color: '#8a9280', fontFamily: 'DM Mono,monospace' },
+  armBadge: { fontSize: 9, padding: '1px 7px', borderRadius: 20, fontWeight: 500, fontFamily: 'DM Mono,monospace' },
+  armTitulo: { fontSize: 12, fontWeight: 500, color: '#1a1c16', fontFamily: 'DM Sans,system-ui,sans-serif' },
+  topicRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', borderRadius: 5, background: '#f5f2eb' },
+  topicDot: { width: 5, height: 5, borderRadius: '50%', flexShrink: 0, transition: 'all 0.3s' },
+  topicName: { fontSize: 10, color: '#8a9280', fontFamily: 'DM Mono,monospace' },
+  topicVal: { fontSize: 11, fontWeight: 500, fontFamily: 'DM Mono,monospace' },
 }
