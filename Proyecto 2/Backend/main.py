@@ -40,8 +40,8 @@ UMBRAL_GAS_MAXIMO = 110
 
 UMBRAL_LUZ_OSCURO = 600
 
-UMBRAL_SUELO_SECO = 700
-UMBRAL_SUELO_SATURADO = 400
+UMBRAL_SUELO_SECO = 20
+UMBRAL_SUELO_SATURADO = 80
 
 INTERVALO_RIEGO = 20
 DURACION_RIEGO = 5
@@ -214,7 +214,15 @@ def leer_dht():
 
     except Exception as e:
         print(f"[DHT] Error: {e}")
+def adc_a_porcentaje(valor_adc):
+    """
+    Convierte ADC (0-1023) a porcentaje de humedad.
 
+    1023 -> 0%
+    0    -> 100%
+    """
+    porcentaje = round((1023 - valor_adc) * 100 / 1023)
+    return max(0, min(100, porcentaje))
 
 def leer_arduino():
     try:
@@ -239,8 +247,11 @@ def leer_arduino():
         with lock:
             estado["luz"] = datos.get("LUZ")
             estado["gas"] = datos.get("GAS")
-            estado["suelo1"] = datos.get("SUELO1", datos.get("SUELO"))
-            estado["suelo2"] = datos.get("SUELO2", datos.get("SUELO"))
+            suelo1_adc = datos.get("SUELO1", datos.get("SUELO"))
+            suelo2_adc = datos.get("SUELO2", datos.get("SUELO"))
+
+            estado["suelo1"] = adc_a_porcentaje(suelo1_adc) if suelo1_adc is not None else None
+            estado["suelo2"] = adc_a_porcentaje(suelo2_adc) if suelo2_adc is not None else None
 
     except Exception as e:
         print(f"[ARDUINO ERROR] {e}")
@@ -279,7 +290,7 @@ def riego_manual():
     with lock:
         suelo = estado["suelo1"]
 
-    if suelo is not None and suelo <= UMBRAL_SUELO_SATURADO:
+    if suelo is not None and suelo >= UMBRAL_SUELO_SATURADO:
         print("[RIEGO MANUAL] Bloqueado por suelo saturado")
         return
 
@@ -329,7 +340,7 @@ def automatismos():
             set_luces(False)
 
     if suelo1 is not None:
-        if suelo1 >= UMBRAL_SUELO_SECO:
+        if suelo1 < UMBRAL_SUELO_SECO:
             activar_riego_cada_20s()
             advertencia = True
 
