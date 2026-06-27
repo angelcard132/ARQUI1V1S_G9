@@ -505,15 +505,24 @@ def guardar_lecturas_csv():
         with open("lecturas.csv", mode="w", encoding="utf-8") as f:
             f.write("ID,TEMP,HUM_AIRE,HUM_SUELO_1,HUM_SUELO_2,LUZ,GAS,RIEGO_1,RIEGO_2\n")
             for idx, item in enumerate(lecturas_30, start=1):
-                temp = item.get("temp") if item.get("temp") is not None else 0
-                hum = item.get("hum") if item.get("hum") is not None else 0
-                suelo1 = item.get("suelo1") if item.get("suelo1") is not None else 0
-                suelo2 = item.get("suelo2") if item.get("suelo2") is not None else 0
-                luz = item.get("luz") if item.get("luz") is not None else 0
-                gas = item.get("gas") if item.get("gas") is not None else 0
+                temp = item.get("temp")
+                hum = item.get("hum")
+                suelo1 = item.get("suelo1")
+                suelo2 = item.get("suelo2")
+                luz = item.get("luz")
+                gas = item.get("gas")
+
+                temp_str = str(int(round(temp))) if temp is not None else ""
+                hum_str = str(int(round(hum))) if hum is not None else ""
+                suelo1_str = str(int(round(suelo1))) if suelo1 is not None else ""
+                suelo2_str = str(int(round(suelo2))) if suelo2 is not None else ""
+                luz_str = str(int(round(luz))) if luz is not None else ""
+                gas_str = str(int(round(gas))) if gas is not None else ""
+
                 riego1 = 1 if item.get("riego1") or item.get("bomba") else 0
                 riego2 = 1 if item.get("riego2") or (item.get("bomba") and not item.get("riego1")) else 0
-                f.write(f"{idx},{int(round(temp))},{int(round(hum))},{int(round(suelo1))},{int(round(suelo2))},{int(round(luz))},{int(round(gas))},{riego1},{riego2}\n")
+
+                f.write(f"{idx},{temp_str},{hum_str},{suelo1_str},{suelo2_str},{luz_str},{gas_str},{riego1},{riego2}\n")
             f.write("$\n")
         print(f"[CSV] lecturas.csv actualizado con {len(lecturas_30)} registros.")
     except Exception as e:
@@ -576,18 +585,17 @@ try:
                 **actuadores,
             })
 
-            if e["temp"] is not None:
-                lecturas_30.append({
-                    "temp": e["temp"],
-                    "hum": e["hum"],
-                    "suelo1": e["suelo1"],
-                    "suelo2": e["suelo2"],
-                    "luz": e["luz"],
-                    "gas": e["gas"],
-                    "bomba": e["bomba"],
-                    "riego1": e["riego1"],
-                    "riego2": e["riego2"],
-                })
+            lecturas_30.append({
+                "temp": e["temp"],
+                "hum": e["hum"],
+                "suelo1": e["suelo1"],
+                "suelo2": e["suelo2"],
+                "luz": e["luz"],
+                "gas": e["gas"],
+                "bomba": e["bomba"],
+                "riego1": e["riego1"],
+                "riego2": e["riego2"],
+            })
 
             if len(lecturas_30) == 30 and ahora - ultimo_csv >= 5:
                 guardar_lecturas_csv()

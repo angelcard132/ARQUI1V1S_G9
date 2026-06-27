@@ -179,11 +179,37 @@ def guardar_arm64(modulo: str, resultado: dict):
         return
 
     try:
+        columna = resultado.get("COLUMNA", "DESCONOCIDA")
+        
+        nombres_modulos = {
+            "modulo_1_media": "Módulo 1 (Media Ponderada)",
+            "modulo_2_varianza": "Módulo 2 (Varianza y Desviación Estándar)",
+            "modulo_3_anomalias": "Módulo 3 (Detección de Anomalías)",
+            "modulo_4_prediccion": "Módulo 4 (Predicción Lineal)",
+            "modulo_5_tendencia": "Módulo 5 (Tendencia Acumulada)",
+        }
+        modulo_friendly = nombres_modulos.get(modulo, modulo)
+        
+        nombres_columnas = {
+            "TEMP": "Temperatura",
+            "HUM_AIRE": "Humedad Aire",
+            "HUM_SUELO_1": "Humedad Suelo 1",
+            "HUM_SUELO_2": "Humedad Suelo 2",
+            "LUZ": "Luz",
+            "GAS": "Gas",
+        }
+        columna_friendly = nombres_columnas.get(columna, columna)
+
+        etiqueta_ejecucion = f"{modulo_friendly} sobre columna {columna_friendly}"
+
         _db["arm64_results"].insert_one({
             "timestamp": datetime.now(),
             "modulo": modulo,
+            "columna": columna,
+            "etiqueta": etiqueta_ejecucion,
+            "descripcion": f"Resultados de haber ejecutado el {modulo} con la columna de {columna.lower()}",
             "resultado": resultado,
         })
-        print(f"[MongoDB] ARM64 guardado: {modulo}")
+        print(f"[MongoDB] ARM64 guardado: {modulo} ({columna}) -> {etiqueta_ejecucion}")
     except Exception as e:
         print(f"[MongoDB] Error en arm64_results: {e}")
