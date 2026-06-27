@@ -6,6 +6,10 @@ import RPi.GPIO as GPIO
 import board
 import adafruit_dht
 from RPLCD.i2c import CharLCD
+from mqtt_handler import configurar_mqtt, publicar, publicar_sensor, publicar_estado_global
+from collections import deque
+from mongo_handler import conectar, agregar_lectura_memoria, guardar_estado_sistema
+
 
 PIN_LUZ1 = 23
 PIN_LUZ2 = 24
@@ -34,7 +38,7 @@ UMBRAL_GAS_WARN = 80
 UMBRAL_GAS_EMERG = 90
 UMBRAL_GAS_MAXIMO = 110
 
-UMBRAL_LUZ_OSCURO = 220
+UMBRAL_LUZ_OSCURO = 600
 
 UMBRAL_SUELO_SECO = 700
 UMBRAL_SUELO_SATURADO = 400
@@ -94,6 +98,40 @@ estado = {
     "luces": False,
     "buzzer": False,
 }
+ultimas_lecturas = deque(maxlen=5)
+
+db = conectar()
+BROKER = "broker.emqx.io"
+PORT = 1883
+CLIENT_ID = "G9_raspberry_backend"
+
+actuadores_mqtt = {
+    "activar_riego": lambda area, activar, origen="mqtt": set_bomba(activar),
+    "set_ventilador": lambda activar, origen="mqtt": set_ventilador(activar),
+    "set_luces": lambda activar, origen="mqtt": set_luces(activar),
+    "set_alarma": lambda activar, origen="mqtt": set_buzzer(activar),
+}
+
+mqtt_client = configurar_mqtt(
+    BROKER,
+    PORT,
+    CLIENT_ID,
+    estado,
+    db,
+    actuadores_mqtt
+)
+def publicar_sensores_mqtt(lectura):
+    publicar_sensor("temp", lectura["temp"], "C", "NORMAL")
+    publicar_sensor("hum", lectura["hum"], "%", "NORMAL")
+    publicar_sensor("luz", lectura["luz"], "raw", "NORMAL")
+    publicar_sensor("gas", lectura["gas"], "raw", "NORMAL")
+    publicar_sensor("suelo1", lectura["suelo1"], "raw", "NORMAL")
+    publicar_sensor("suelo2", lectura["suelo2"], "raw", "NORMAL") 
+
+ultimo_lcd = 0
+ultimo_print = 0
+ultimo_mongo = 0
+ultimo_mqtt = 0
 
 lock = threading.Lock()
 
@@ -266,16 +304,18 @@ def automatismos():
     advertencia = False
 
     if gas is not None:
-        if gas >= UMBRAL_GAS_EMERG:
+        if gas >= UMBRAL_GAS_WARN:
             set_buzzer(True)
+            advertencia = True
+        else:
+            set_buzzer(False)
+
+        if gas >= UMBRAL_GAS_EMERG:
             set_ventilador(True)
             emergencia = True
         else:
-            set_buzzer(False)
             if temp is None or temp < UMBRAL_TEMP_ALTA:
                 set_ventilador(False)
-            if gas >= UMBRAL_GAS_WARN:
-                advertencia = True
 
     if temp is not None and temp >= UMBRAL_TEMP_ALTA:
         set_ventilador(True)
@@ -420,14 +460,16 @@ def imprimir_estado():
 
 try:
     print("=== PRUEBA ENUNCIADO ACTUALIZADA ===")
-    print("Gas >= 80  -> advertencia")
-    print("Gas >= 90  -> buzzer ON y ventilador ON (emergencia)")
-    print("Luz >= 220 -> luces ON")
+    print("Gas >= 80  -> buzzer ON")
+    print("Gas >= 90  -> ventilador ON")
+    print("Luz >= 600 -> luces ON")
     print("Suelo >= 700 -> riego cada 20s por 5s")
     print("BTN1: automatico/manual")
     print("BTN2: riego manual")
     print("BTN3: luces manual")
     print("BTN4: silenciar buzzer")
+    print("------------------------------------")
+
     lcd.clear()
     lcd.write_string("Prueba sistema")
     lcd.crlf()
@@ -437,13 +479,83 @@ try:
 
     threading.Thread(target=hilo_botones, daemon=True).start()
 
+   
+
     while True:
-        leer_dht()
-        leer_arduino()
-        automatismos()
-        actualizar_lcd()
-        imprimir_estado()
-        time.sleep(1)
+            ahora = time.time()
+
+            leer_dht()
+            leer_arduino()
+            automatismos()
+
+            with lock:
+                e = dict(estado)
+
+            lectura = {
+                "temp": e["temp"],
+                "hum": e["hum"],
+                "luz": e["luz"],
+                "gas": e["gas"],
+                "suelo1": e["suelo1"],
+                "suelo2": e["suelo2"],
+            }
+
+            actuadores = {
+                "bomba": e["bomba"],
+                "ventilador": e["ventilador"],
+                "luces": e["luces"],
+                "buzzer": e["buzzer"],
+            }
+
+            ultimas_lecturas.append({
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "estado": e["global"],
+                **lectura,
+                **actuadores,
+            })
+
+            if ahora - ultimo_lcd >= 3:
+                actualizar_lcd()
+                ultimo_lcd = ahora
+
+            if ahora - ultimo_print >= 3:
+                imprimir_estado()
+                ultimo_print = ahora
+
+            if ahora - ultimo_mqtt >= 2:
+
+                    publicar("global", {
+                        "estado": e["global"],
+                        "modo": e["modo"],
+                        "sensores": lectura,
+                        "actuadores": actuadores,
+                    }, retain=True, qos=0)
+
+                    publicar_sensores_mqtt(lectura)
+
+                    publicar_estado_global(
+                        e["global"],
+                        e["modo"],
+                        lectura
+                    )
+
+                    ultimo_mqtt = ahora
+
+            if ahora - ultimo_mongo >= 20:
+                for item in list(ultimas_lecturas):
+                    agregar_lectura_memoria(item, e["global"])
+
+                guardar_estado_sistema(
+                    e["global"],
+                    e["modo"],
+                    lectura,
+                    actuadores
+                )
+
+                publicar("sensores/ultimas_5", list(ultimas_lecturas), retain=True, qos=0)
+
+                ultimo_mongo = ahora
+                
 
 except KeyboardInterrupt:
     print("\nApagando prueba...")
