@@ -1,429 +1,411 @@
-// Rutina 3: Prediccion futura por regresion 
-//Tuli Pirir 
 .section .data
-msg_inicio:     .asciz "Leyendo CsV ...\n"
-len_inicio = . - msg_inicio -1
-msg_error_arg:  .asciz "Error: Faltan argumentos. COLUMNA FILA_INICIO FILA_FIN [K]\n"
-len_error_arg = . - msg_error_arg -1 
-// archivo de salida 
-out_filename:   .asciz "resultado_prediccion.txt"
-// salidas 
-str_calc:       .asciz "CALC=PREDICTION\n"
-len_calc = . - str_calc -1
 
-str_col:        .asciz "COLUMN="
-len_col =  .- str_col -1
+out_filename:
+    .asciz "resultado_prediccion.txt"
 
-str_wstart:     .asciz "WINDOW_START="
-len_wstart = .- str_wstart -1
+str_calc:
+    .ascii "CALC=PREDICTION COLUMN="
+len_calc = . - str_calc
 
-str_wend:       .asciz "WINDOW_END="
-len_wend = . - str_wend -1
+str_ws:
+    .ascii " WINDOW_START="
+len_ws = . - str_ws
 
-str_count:      .asciz "COUNT="
-len_count = . - str_count -1 
+str_we:
+    .ascii " WINDOW_END="
+len_we = . - str_we
 
-str_k:          .asciz "K="
-len_k = . - str_k -1 
+str_count:
+    .ascii " COUNT="
+len_count = . - str_count
 
-str_slope:      .asciz "SLOPE_x100="
-len_slope = . - str_slope -1 
+str_k:
+    .ascii " K="
+len_k = . - str_k
 
-str_intercept:  .asciz "INTERCEPT_x100="
-len_intercept = . - str_intercept -1 
+str_slope:
+    .ascii " SLOPE_X100="
+len_slope = . - str_slope
 
-str_predicted:  .asciz "PREDICTED_K="
-len_predicted = . - str_predicted -1 
+str_intercept:
+    .ascii " INTERCEPT_X100="
+len_intercept = . - str_intercept
 
-str_status:     .asciz "STATUS=OK\n"
-len_status = . - str_status - 1
+str_pred:
+    .ascii " PREDICTED_"
+len_pred = . - str_pred
 
-// errores 
-str_status_err: .asciz "STATUS=ERROR\n"
-len_status_err = . - str_status_err -1 
+str_equal:
+    .ascii "="
+len_equal = . - str_equal
 
-str_err_type:   .asciz "ERROR=INVALID_INPUT\n"
-len_err_type = .- str_err_detail -1
+str_ok:
+    .ascii " STATUS=OK\n"
+len_ok = . - str_ok
 
-str_err_detail: .asciz "DETAIL=INVALID_DATA_OR_FIELDS\n"
-len_err_detail = . - str_err_detail -1
+err_args:
+    .ascii "STATUS=ERROR ERROR=INVALID_ARGS DETAIL=USE_FILE_START_END_COLUMN_OPTIONAL_K\n"
+len_err_args = . - err_args
 
-.align 8
+err_file:
+    .ascii "STATUS=ERROR ERROR=FILE_READ_FAILED DETAIL=COULD_NOT_READ_CSV\n"
+len_err_file = . - err_file
+
+err_col:
+    .ascii "STATUS=ERROR ERROR=INVALID_COLUMN DETAIL=COLUMN_NOT_SUPPORTED\n"
+len_err_col = . - err_col
+
+err_range:
+    .ascii "STATUS=ERROR ERROR=INVALID_RANGE DETAIL=WINDOW_OUT_OF_RANGE\n"
+len_err_range = . - err_range
+
+err_data:
+    .ascii "STATUS=ERROR ERROR=INSUFFICIENT_DATA DETAIL=PREDICTION_REQUIRES_AT_LEAST_2_VALUES\n"
+len_err_data = . - err_data
+
 .section .bss
-ascii_buf:      .space 32       // buffer temporal para parse
-values_array:   .space 8000     // almacenamiento
+
+values:
+    .space 8192
+
+ascii_buf:
+    .space 32
+
+fd_out:
+    .quad 0
+
+arg_file:
+    .quad 0
+
+arg_start:
+    .quad 0
+
+arg_end:
+    .quad 0
+
+arg_col:
+    .quad 0
+
+count_val:
+    .quad 0
+
+k_val:
+    .quad 0
+
+slope_val:
+    .quad 0
+
+intercept_val:
+    .quad 0
+
+pred_val:
+    .quad 0
 
 .section .text
 .global _start
 
-// funciones deutils.s
-.extern read_csv
-.extern read_range_column
-.extern parse_int
-.extern open_output
-.extern write_result
-.extern int_to_ascii
-.extern newline
-.extern close_fd
-
 _start:
-    //argumentos iniciales
-    ldr x0, [sp]            // cantidad de argumentos
-    cmp x0, #4              //l -inicio -fin
-    blt error_argumentos
-    //extraer datos 
-    ldr x0, [sp, #16]       //  argv[1]  f_ini
-    bl parse_int           
-    mov x20, x0             // f_inicioe en  x20
+    ldr x0, [sp]
+    cmp x0, #5
+    blt error_args
 
-    ldr x0, [sp, #24]       // x0 = argv[2] 
-    bl parse_int            
-    mov x21, x0             // f_ final  en x21
+    ldr x9, [sp, #16]
+    adr x10, arg_file
+    str x9, [x10]
 
-    ldr x0, [sp, #32]       // x0 = argv[3]
-    bl parse_int            
-    mov x19, x0             // col en 19
+    ldr x9, [sp, #24]
+    mov x0, x9
+    bl parse_int
+    adr x10, arg_start
+    str x0, [x10]
 
-    //cantidad de elementos 
-    sub x0, x21, x20        // x0 = fin - inicio
-    mov x25, x0
-    //  si   K  en argv[4]
-    ldr x0, [sp]            // cargar  argc
-    cmp x0, #5              //  parametro opcional K
-    blt usar_k_por_defecto
+    ldr x9, [sp, #32]
+    mov x0, x9
+    bl parse_int
+    adr x10, arg_end
+    str x0, [x10]
 
-    ldr x0, [sp, #40]       // x0 = argv[4]  desplazamiento K
-    bl parse_int            
-    mov x26, x0             //  K  en x26
-    b inicio_procesamiento
+    ldr x9, [sp, #40]
+    adr x10, arg_col
+    str x9, [x10]
 
-usar_k_por_defecto:
-    mov x26, #5             // por defecto K = 5 
+    ldr x0, [sp]
+    cmp x0, #6
+    blt default_k
 
-inicio_procesamiento:
-   // inicio 
-    mov x0, #1
-    ldr x1, =msg_inicio
-    mov x2, #len_inicio
-    bl write_result
+    ldr x9, [sp, #48]
+    mov x0, x9
+    bl parse_int
+    b save_k
 
-    // cargar archivo 
-    mov x0, #0            
+default_k:
+    mov x0, #5
+
+save_k:
+    adr x10, k_val
+    str x0, [x10]
+
+    adr x9, arg_file
+    ldr x0, [x9]
     bl read_csv
-    cmp x0, #0               
-    blt reporte_error  //Manejo de erroes 
+    cmp x0, #0
+    blt error_file
 
-    // datos para trabajar en el buffer arreglo
-    mov x0, x20             // FILA_INICIO
-    mov x1, x21             // FILA_FIN
-    mov x2, x19             // COL 
+    adr x9, arg_col
+    ldr x0, [x9]
+    bl column_name_to_index
+    cmp x0, #0
+    blt error_col
+    mov x21, x0
 
-    ldr x3, =values_array   //  putero al espacio deonde se guardo 
-    bl read_range_column    // se llena con info  
+    adr x9, arg_start
+    ldr x0, [x9]
+    adr x9, arg_end
+    ldr x1, [x9]
+    mov x2, x21
+    adr x3, values
+    bl read_range_column
+    cmp x0, #0
+    blt error_range
+    cmp x0, #2
+    blt error_data
 
-    cmp x0, #0              // error rango
-    ble reporte_error // 
+    adr x9, count_val
+    str x0, [x9]
+    mov x22, x0
 
-    //  sumatorias 
-    mov x0, x25             //  N 
-    ldr x1, =values_array   // datos 
-    
-    // sumatorias para trabajar despues con la formula 
-    /*
-        x0=sum_y  --   suma  de todos los datos
-        x1=sum_x -- suamatoria de n 
-        x2=sum_xy -- suma de la multiplicación cruzada
-        x3=sum_xx  -- suma de las posiciones al cuadrado
-    */
-    bl calc_sumatorias     
-    // coeficientes de la recta 
-    mov x4, x25  //  m a x4 
-    /*
-        x0 = M_x100 = pendient * 100.  
-        x1 =B_x100 =  intercepto * 100.  
-    */
-    bl ejecutar_regresion   
-    mov x17, x0             //  pendiente en x17
-    mov x18, x1             //  intercepto  en x18
+    mov x19, #0
+    mov x23, #0
+    mov x24, #0
+    mov x25, #0
+    mov x26, #0
+    adr x27, values
 
-    // prediccion 
-    mov x0, x17             //  pendiente m
-    mov x2, x25             //  N
-    mov x3, x26             //  K
-    bl predecir_futuro      //  x0 = Valor futuro 
-    mov x19, x0             // valor final  en x19
-    //  reporte de texto
-    bl guardar_reporte
-    b terminar
+sum_loop:
+    cmp x19, x22
+    bge calc_regression
 
-error_argumentos:
-    mov x0, #1
-    ldr x1, =msg_error_arg
-    mov x2, #len_error_arg
-    bl write_result
-    ble reporte_error
-terminar:
-    mov x8, #93             // syscall exit
+    mov x8, #8
+    mul x9, x19, x8
+    add x10, x27, x9
+    ldr x11, [x10]
+
+    add x23, x23, x11
+    add x24, x24, x19
+
+    mul x12, x19, x11
+    add x25, x25, x12
+
+    mul x13, x19, x19
+    add x26, x26, x13
+
+    add x19, x19, #1
+    b sum_loop
+
+calc_regression:
+    mul x10, x22, x25
+    mul x11, x24, x23
+    sub x12, x10, x11
+
+    mul x13, x22, x26
+    mul x14, x24, x24
+    sub x15, x13, x14
+
+    cmp x15, #0
+    beq slope_zero
+
+    mov x16, #100
+    mul x12, x12, x16
+    sdiv x17, x12, x15
+    b calc_intercept
+
+slope_zero:
+    mov x17, #0
+
+calc_intercept:
+    mov x16, #100
+    mul x10, x23, x16
+    mul x11, x17, x24
+    sub x12, x10, x11
+    sdiv x18, x12, x22
+
+    adr x9, slope_val
+    str x17, [x9]
+    adr x9, intercept_val
+    str x18, [x9]
+
+calc_prediction:
+    adr x9, k_val
+    ldr x10, [x9]
+    add x11, x22, x10
+
+    mul x12, x17, x11
+    add x12, x12, x18
+    mov x13, #100
+    sdiv x14, x12, x13
+
+    adr x9, pred_val
+    str x14, [x9]
+
+write_output:
+    adr x0, out_filename
+    bl open_output
+    cmp x0, #0
+    blt error_file
+    adr x9, fd_out
+    str x0, [x9]
+
+    adr x1, str_calc
+    mov x2, #len_calc
+    bl write_fd
+
+    adr x9, arg_col
+    ldr x0, [x9]
+    bl strlen
+    mov x2, x0
+    adr x9, arg_col
+    ldr x1, [x9]
+    bl write_fd
+
+    adr x1, str_ws
+    mov x2, #len_ws
+    bl write_fd
+    adr x9, arg_start
+    ldr x0, [x9]
+    bl write_num
+
+    adr x1, str_we
+    mov x2, #len_we
+    bl write_fd
+    adr x9, arg_end
+    ldr x0, [x9]
+    bl write_num
+
+    adr x1, str_count
+    mov x2, #len_count
+    bl write_fd
+    adr x9, count_val
+    ldr x0, [x9]
+    bl write_num
+
+    adr x1, str_k
+    mov x2, #len_k
+    bl write_fd
+    adr x9, k_val
+    ldr x0, [x9]
+    bl write_num
+
+    adr x1, str_slope
+    mov x2, #len_slope
+    bl write_fd
+    adr x9, slope_val
+    ldr x0, [x9]
+    bl write_num
+
+    adr x1, str_intercept
+    mov x2, #len_intercept
+    bl write_fd
+    adr x9, intercept_val
+    ldr x0, [x9]
+    bl write_num
+
+    adr x1, str_pred
+    mov x2, #len_pred
+    bl write_fd
+    adr x9, k_val
+    ldr x0, [x9]
+    bl write_num
+
+    adr x1, str_equal
+    mov x2, #len_equal
+    bl write_fd
+    adr x9, pred_val
+    ldr x0, [x9]
+    bl write_num
+
+    adr x1, str_ok
+    mov x2, #len_ok
+    bl write_fd
+
+    adr x9, fd_out
+    ldr x0, [x9]
+    bl close_fd
+
+    mov x0, #0
+    mov x8, #93
     svc #0
 
-/*
-  sumatorias calculos 
-  entra  
-    x0 = N 
-    x1 = putero inicio del aregla 
- sale
-   x0 = sum_y
-   x1 = sum_x
-   x2 = sum_xy
-   x3 = sum_xx
-*/
-calc_sumatorias:
-    stp x19, x20, [sp, #-32]! //preindex 
-    stp x21, x22, [sp, #16]
-
-    // variables locales
-    mov x19, x0             // x19 =  N 
-    mov x20, x1             // x20 =  base del arreglo de datos
-    mov x12, #0             // x12 =  iterna
-
-    // retisros limpios 
-    mov x0, #0             
-    mov x1, #0             
-    mov x2, #0              
-    mov x3, #0              
-
-sumatoria_loop:
-    cmp x12, x19            // iterador 
-    bge fin_sumatorias      
-    //  carga datos del arreglo
-    // x12 * 8 (lsl #3) 
-    ldr x10, [x20, x12, lsl #3] // x10 = y_i  desde el arreglo
-    mov x9, x12                 // x9  = x_i indice
-
-    // sum_y= x0 y sum_x = x1
-    add x0, x0, x10             // x0 = suma_y = x0 + x10
-    add x1, x1, x9              // x0 = suma_x = x1 + x9
-    
-    //sum_xy sumatoria curzada 
-    // multiplica 
-    mul x21, x9, x10            // x21 = x_i * y_i = x9*x10
-    // suma 
-    add x2, x2, x21             // x2= suma_xy = x21 + x21
-
-    //sum_xx sumatoria de cuadrados 
-    mul x22, x9, x9            // x22 = x_i * x_i
-    add x3, x3, x22             // x3=  suma_xx = x3 + x22
-
-    // siguiente elemento
-    add x12, x12, #1            // i = i + 1
-    b sumatoria_loop      //  ciclo
-
-fin_sumatorias:
-    // restaurar  los registros en la pila 
-    ldp x21, x22, [sp, #16]
-    ldp x19, x20, [sp], #32
-    ret
-
-ejecutar_regresion:
-
-    /*
-        ejecutar_regresion
-        entra
-            x0 = sum_y
-            x1 = sum_x
-            x2 = sum_xy
-            x3 = sum_xx
-            x4 = N
-        sale 
-        x0 = slope_x100
-            x1 = intercept_x100
-    */
-
-    
-//  CALCULO  PENDIENTE slope_x100 = m
-// slope_x100 = 100 * (N * sum_xy - sum_x * sum_y) / (N * sum_xx - sum_x * sum_x)
-m_numerador:
-    // fomula : numerador_M = N * suma_xy - suma_x * suma_y
-    mul x9, x4, x2          // x9 = N * suma_xy
-    mul x10, x1, x0         // x10 = suma_x * suma_y
-    sub x9, x9, x10         // x9 = (N * suma_xy) - (suma_x * suma_y)
-    //  por 100 
-    mov x11, #100
-    mul x9, x9, x11         // x9 = numerador_M * 100
-m_denominador:
-    // formula : denominador_M = N * suma_xx - (suma_x)^2
-    mul x12, x4, x3         // x12 = N * suma_xx
-    mul x13, x1, x1         // x13 = suma_x * suma_x
-    sub x12, x12, x13       // x12 = Denominador_M
-m_division:
-    //divicion con signo
-    // Dividir = pendiente m
-    sdiv x14, x9, x12       // x14 = sLOPE_x100 = (Numerador * 100) / Denominador
-//el intercepto  B_x100
-b_numerador:
-    // Intercepto_B  = (suma_y *100)-( m * suma_x) / N
-    mul x9, x0, x11         // x9 = suma_y * 100
-    mul x10, x14, x1        // x10 = m_x100 * suma_x
-    sub x9, x9, x10         // x9 = (suma_y * 100) - (m_x100 * suma_x)
-b_division:
-    // divido n
-    sdiv x15, x9, x4        // x15 =Intercepto_B_x100 = B_x100 
-regresion_salida:
-    mov x0, x14             //   pendiente en x0
-    mov x1, x15             //   intercepto en x1
-    ret
-
-        /*
-        predecir_futuro
-        entra:
-            x0 = m_x100 
-            x1 = b_x100
-            x2 = N
-            x3 = K
-        sasle
-            x0 = y_predic
-        */
-predecir_futuro:
-    //  x_futuro = N + K - 1 
-    add x9, x2, x3
-    sub x9, x9, #1          // x9 = x_futuro
-    //Y_PRED = ((M_X100 * X_FUTURE) + B_X100) / 100 
-    mul x10, x0, x9         // x10 = m_x100 * x_futuro
-    add x10, x10, x1        // x10 = (m_x100 * x_futuro) + b_x100
-    // dividiendo  por 100
-    mov x11, #100
-    sdiv x0, x10, x11       // x0 = y aproximada redonda Resultado final
-    ret
- //gurdar_reporte
-
-guardar_reporte:
+write_fd:
     stp x29, x30, [sp, #-16]!
     mov x29, sp
 
-    // Abrir el archivo 
-    ldr x0, =out_filename
-    bl open_output
-    cmp x0, #0                  
-    blt fin_guardar
-    mov x23, x0                 
-
-    // escritura y concatenacion
-    mov x0, x23
-    ldr x1, =str_calc
-    mov x2, #len_calc
+    adr x9, fd_out
+    ldr x0, [x9]
     bl write_result
 
-    ldr x1, =str_col
-    mov x2, #len_col
-    mov x3, x19                 // COLUMN
-    bl escribir_linea
-
-    ldr x1, =str_wstart
-    mov x2, #len_wstart
-    mov x3, x20                 //  WINDOW_sTART
-    bl escribir_linea
-
-    ldr x1, =str_wend
-    mov x2, #len_wend
-    mov x3, x21                 //WINDOW_END
-    bl escribir_linea
-
-    ldr x1, =str_count
-    mov x2, #len_count
-    mov x3, x25                 // COUNT
-    bl escribir_linea
-
-    ldr x1, =str_k
-    mov x2, #len_k
-    mov x3, x26                 //  K
-    bl escribir_linea
-
-    ldr x1, =str_slope
-    mov x2, #len_slope
-    mov x3, x17                 //  sLOPE_x100
-    bl escribir_linea
-
-    ldr x1, =str_intercept
-    mov x2, #len_intercept
-    mov x3, x18                 //  INTERCEPT_x100
-    bl escribir_linea
-
-    ldr x1, =str_predicted
-    mov x2, #len_predicted
-    mov x3, x19                 // PREDICTED_K
-    bl escribir_linea
-
-    // salida 
-    mov x0, x23
-    ldr x1, =str_status
-    mov x2, #len_status
-    bl write_result
-
-    // Cerrar archivo 
-    mov x0, x23
-    bl close_fd
-
-fin_guardar:
-    ldp x29, x30, [sp], #16
+    ldr x30, [sp, #8]
+    ldr x29, [sp]
+    add sp, sp, #16
     ret
 
-
-//scribir_linea
-
-escribir_linea:
-    stp x29, x30, [sp, #-32]!
+write_num:
+    stp x29, x30, [sp, #-16]!
     mov x29, sp
-    str x3, [sp, #16]    
 
-    // header 
-    mov x0, x23                 
-    bl write_result
-
-    // Convertir  ASCII
-    ldr x0, [sp, #16]
-    ldr x1, =ascii_buf
+    adr x1, ascii_buf
     bl int_to_ascii
 
-    // 
-    mov x2, x0         //  registro x0 
-    mov x0, x23                 
-    ldr x1, =ascii_buf
-    bl write_result
+    mov x2, x0
+    adr x1, ascii_buf
+    bl write_fd
 
-    //  \n 
-    mov x0, x23
-    bl newline
-
-    ldp x29, x30, [sp], #32
+    ldr x30, [sp, #8]
+    ldr x29, [sp]
+    add sp, sp, #16
     ret
 
-//Manejo de reporte de errores 
-reporte_error:
-    ldr x0, =out_filename
-    bl open_output
-    cmp x0, #0                  
-    blt terminar               
-    mov x23, x0                 
+strlen:
+    mov x1, x0
+    mov x0, #0
 
-    // STATUS=ERROR
-    mov x0, x23
-    ldr x1, =str_status_err
-    mov x2, #len_status_err
+strlen_loop:
+    ldrb w2, [x1, x0]
+    cbz w2, strlen_done
+    add x0, x0, #1
+    b strlen_loop
+
+strlen_done:
+    ret
+
+error_args:
+    adr x1, err_args
+    mov x2, #len_err_args
+    b write_error
+
+error_file:
+    adr x1, err_file
+    mov x2, #len_err_file
+    b write_error
+
+error_col:
+    adr x1, err_col
+    mov x2, #len_err_col
+    b write_error
+
+error_range:
+    adr x1, err_range
+    mov x2, #len_err_range
+    b write_error
+
+error_data:
+    adr x1, err_data
+    mov x2, #len_err_data
+
+write_error:
+    mov x0, #1
     bl write_result
+    mov x0, #1
+    mov x8, #93
+    svc #0
 
-    //ERROR=INVALID_INPUT
-    mov x0, x23
-    ldr x1, =str_err_type
-    mov x2, #len_err_type
-    bl write_result
 
-    //DETAIL=INVALID_DATA_OR_FIELDS
-    mov x0, x23
-    ldr x1, =str_err_detail
-    mov x2, #len_err_detail
-    bl write_result
-
-    // Cerra
-    mov x0, x23
-    bl close_fd
-    b terminar
