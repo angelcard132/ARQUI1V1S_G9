@@ -115,9 +115,9 @@ check_suelo2:
     blt print_riego2
 
 check_luz:
-    // LUZ promedio baja
-    cmp x15, #870
-    blt print_light
+    // LUZ promedio alta (oscuridad) >= 850
+    cmp x15, #850
+    bge print_light
 
 check_temp:
     // TEMP promedio alta

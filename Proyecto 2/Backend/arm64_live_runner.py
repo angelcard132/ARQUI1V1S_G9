@@ -124,14 +124,14 @@ class ARM64LiveRunner:
             return
 
         proc = self.proc
-        self.proc = None  # liberar referencia antes de tocar pipes
+        self.proc = None 
 
         try:
             if proc.stdin and not proc.stdin.closed:
                 proc.stdin.write("n\n")
                 proc.stdin.flush()
         except (BrokenPipeError, OSError):
-            pass  # el proceso ya no tiene stdin abierto; no pasa nada
+            pass  
 
         try:
             proc.terminate()

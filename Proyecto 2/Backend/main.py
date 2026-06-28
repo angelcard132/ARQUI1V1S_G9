@@ -8,7 +8,7 @@ import adafruit_dht
 from RPLCD.i2c import CharLCD
 from mqtt_handler import configurar_mqtt, publicar, publicar_sensor, publicar_estado_global
 from collections import deque
-from mongo_handler import conectar, agregar_lectura_memoria, guardar_estado_sistema
+from mongo_handler import conectar, agregar_lectura_memoria, guardar_estado_sistema, guardar_decision_motor
 from arm64_live_runner import ARM64LiveRunner
 
 
@@ -39,7 +39,7 @@ UMBRAL_GAS_WARN = 80
 UMBRAL_GAS_EMERG = 90
 UMBRAL_GAS_MAXIMO = 110
 
-UMBRAL_LUZ_OSCURO = 600
+UMBRAL_LUZ_OSCURO = 850
 
 UMBRAL_SUELO_SECO = 20
 UMBRAL_SUELO_SATURADO = 80
@@ -145,6 +145,8 @@ ultimo_riego = 0
 riego_en_curso = False
 tiempo_inicio_riego = 0
 cooldown_riego = 0
+ultima_accion_motor = None
+ultimo_mongo_decision = 0
 
 # Instanciar e iniciar el motor vivo ARM64
 motor_vivo = ARM64LiveRunner("./arm64/Motor64/motor_vivo_nuevo")
@@ -427,7 +429,7 @@ def automatismos():
     risk = res.get("RISK", "LOW")
     target = res.get("TARGET", "GENERAL")
 
-    global tiempo_inicio_riego, cooldown_riego
+    global tiempo_inicio_riego, cooldown_riego, ultima_accion_motor, ultimo_mongo_decision
     ahora = time.time()
     
     if ahora < cooldown_riego:
@@ -452,6 +454,14 @@ def automatismos():
         tiempo_inicio_riego = 0
 
     print(f"[ARM64 LIVE] Decisión: ACTION={action}, TARGET={target}, RISK={risk}")
+
+    # Guardar en MongoDB Atlas (colección arm64_results)
+    decision_cambio = (action != ultima_accion_motor)
+    mongo_timer = (ahora - ultimo_mongo_decision >= 20)
+    if decision_cambio or mongo_timer:
+        guardar_decision_motor(lectura, res)
+        ultima_accion_motor = action
+        ultimo_mongo_decision = ahora
 
     # Ejecutar la acción decidida por el motor ARM64
     emergencia = (risk == "CRITICAL")

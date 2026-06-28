@@ -213,3 +213,49 @@ def guardar_arm64(modulo: str, resultado: dict):
         print(f"[MongoDB] ARM64 guardado: {modulo} ({columna}) -> {etiqueta_ejecucion}")
     except Exception as e:
         print(f"[MongoDB] Error en arm64_results: {e}")
+
+
+def guardar_decision_motor(lectura: dict, res: dict):
+    if _db is None:
+        return
+
+    try:
+        status_raw = res.get("STATUS", "OK")
+        action = res.get("ACTION", "NO_ACTION")
+        risk = res.get("RISK", "LOW")
+        target = res.get("TARGET", "GENERAL")
+        reason = res.get("REASON", "NORMAL_CONDITIONS")
+        
+        # Mapeamos a enteros si es posible
+        try:
+            val_int = int(res.get("VALUE", "0"))
+        except ValueError:
+            val_int = 0
+            
+        try:
+            ind_int = int(res.get("INDICATOR", "0"))
+        except ValueError:
+            ind_int = 0
+
+        doc = {
+            "timestamp": datetime.now(),
+            "source": "live_engine",
+            "module": "motor_vivo",
+            "input": lectura,
+            "result": {
+                "VALUE": val_int,
+                "INDICATOR": ind_int,
+                "REASON": reason,
+            },
+            "decision": action,
+            "risk": risk,
+            "status": status_raw,
+        }
+
+        if status_raw == "ERROR":
+            doc["error_detail"] = f"{res.get('ERROR', '')}: {res.get('DETAIL', '')}"
+
+        _db["arm64_results"].insert_one(doc)
+        print(f"[MongoDB] Decisión Motor Guardada: {action} ({risk})")
+    except Exception as e:
+        print(f"[MongoDB] Error guardando decision del motor: {e}")
