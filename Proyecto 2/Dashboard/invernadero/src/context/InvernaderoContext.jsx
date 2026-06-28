@@ -49,6 +49,7 @@ const initialState = {
     anomalias:  null,
     prediccion: null,
     tendencia:  null,
+    ultimoError: null,
   },
   arm64Ejecutando: null, // { modulo, columna } mientras espera resultado
 
@@ -110,7 +111,11 @@ function reducer(state, action) {
       }
 
     case 'ARM64_EJECUTANDO':
-      return { ...state, arm64Ejecutando: action.payload }
+      return {
+        ...state,
+        arm64Ejecutando: action.payload,
+        arm64: { ...state.arm64, ultimoError: null }
+      }
 
     default:
       return state
@@ -168,7 +173,7 @@ export function InvernaderoProvider({ children }) {
   }, [addEvento])
 
   // Publicar solicitud de ejecucion ARM64 
-  const publicarArm64 = useCallback((modulo, columna) => {
+  const publicarArm64 = useCallback((modulo, columna, archivo = 'lecturas.csv', lineaInicial = 1, lineaFinal = 30) => {
     const client = clientRef.current
     if (!client?.connected) {
       console.warn('[MQTT] Sin conexion — ARM64 no enviado')
@@ -178,13 +183,16 @@ export function InvernaderoProvider({ children }) {
     const payload = JSON.stringify({
       modulo,
       columna,
+      archivo,
+      lineaInicial: parseInt(lineaInicial) || 1,
+      lineaFinal: parseInt(lineaFinal) || 30,
       origen: 'dashboard',
       ts:     Date.now(),
     })
 
     client.publish(TOPICS.ARM64_REQUEST, payload)
 
-    dispatch({ type: 'ARM64_EJECUTANDO', payload: { modulo, columna } })
+    dispatch({ type: 'ARM64_EJECUTANDO', payload: { modulo, columna, archivo, lineaInicial, lineaFinal } })
 
     dispatch({
       type:    'COMANDO',
@@ -192,12 +200,12 @@ export function InvernaderoProvider({ children }) {
         id:       Date.now(),
         hora:     new Date().toLocaleTimeString('es-GT', { hour:'2-digit', minute:'2-digit', second:'2-digit' }),
         actuador: modulo,
-        cmd:      `COL=${columna}`,
+        cmd:      `COL=${columna} FILE=${archivo} RANG=${lineaInicial}-${lineaFinal}`,
         origen:  'Dashboard ARM64',
       },
     })
 
-    addEvento(`Ejecutando ${modulo} sobre columna ${columna}`, 'ok')
+    addEvento(`Ejecutando ${modulo} sobre ${columna} (${archivo} L${lineaInicial}-L${lineaFinal})`, 'ok')
   }, [addEvento])
 
   // Parsear mensajes MQTT entrantes 
@@ -274,6 +282,22 @@ export function InvernaderoProvider({ children }) {
         //  Resultados ARM64 
         // Topic: invernadero/G9/arm64/modulo_X_nombre
         if (sub.startsWith('arm64/')) {
+          if (data.STATUS === 'ERROR') {
+            const errorMsg = `Error: ${data.ERROR} - ${data.DETAIL || ''}`;
+            addEvento(errorMsg, 'danger');
+            dispatch({
+              type: 'ARM64',
+              data: {
+                ultimoError: {
+                  modulo: sub.replace('arm64/', ''),
+                  error: data.ERROR,
+                  detail: data.DETAIL || 'Error desconocido'
+                }
+              }
+            });
+            return;
+          }
+
           const mod = data.MODULE || ''
           const arm = {}
           const meta = { columna: data.COLUMNA || data.COLUMN || null }

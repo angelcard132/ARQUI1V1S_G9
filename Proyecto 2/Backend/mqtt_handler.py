@@ -136,9 +136,12 @@ def _on_message(client, userdata, msg):
                 data    = json.loads(payload)
                 modulo  = data.get("modulo", "")
                 columna = data.get("columna", "")
+                archivo = data.get("archivo", "lecturas.csv")
+                linea_inicial = data.get("lineaInicial", 1)
+                linea_final = data.get("lineaFinal", 30)
                 origen  = data.get("origen", "dashboard")
  
-                print(f"[ARM64] Solicitud: {modulo} sobre columna {columna} ({origen})")
+                print(f"[ARM64] Solicitud: {modulo} sobre {columna} en {archivo} (rango: L{linea_inicial}-L{linea_final}) ({origen})")
  
                 # Llamar al runner en un hilo para no bloquear MQTT
                 import threading
@@ -147,7 +150,7 @@ def _on_message(client, userdata, msg):
  
                 threading.Thread(
                     target=ejecutar_modulo_individual,
-                    args=(modulo, columna, publicar, guardar_arm64, print),
+                    args=(modulo, columna, publicar, guardar_arm64, print, archivo, linea_inicial, linea_final),
                     daemon=True,
                 ).start()
         except json.JSONDecodeError:

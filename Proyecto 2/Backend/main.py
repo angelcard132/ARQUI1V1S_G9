@@ -102,7 +102,7 @@ estado = {
     "buzzer": False,
 }
 ultimas_lecturas = deque(maxlen=5)
-lecturas_30 = deque(maxlen=30)
+lecturas_30 = deque(maxlen=500)
 ultimo_csv = 0
 
 db = conectar()
@@ -741,7 +741,7 @@ try:
                 "riego2": e["riego2"],
             })
 
-            if len(lecturas_30) == 30 and ahora - ultimo_csv >= 5:
+            if len(lecturas_30) >= 30 and ahora - ultimo_csv >= 5:
                 guardar_lecturas_csv()
                 ultimo_csv = ahora
 

@@ -27,7 +27,7 @@ MODULOS = {
 }
 
 
-def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, log_fn=print):
+def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, log_fn=print, archivo="lecturas.csv", linea_inicial=1, linea_final=30):
 
     ## Ejecuta un modulo ARM64 sobre la columna indicada.
 
@@ -39,8 +39,40 @@ def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, l
         log_fn(f"[ARM64] Columna desconocida: {columna}")
         return
 
-    if not os.path.exists(CSV_PATH):
-        log_fn(f"[ARM64] {CSV_PATH} no existe — aun no hay 30 lecturas")
+    # Validar existencia del archivo
+    if not os.path.exists(archivo):
+        log_fn(f"[ARM64] {archivo} no existe")
+        err_res = {
+            "MODULE": "HISTORICAL_ANALYZER",
+            "STATUS": "ERROR",
+            "ERROR": "FILE_NOT_FOUND",
+            "DETAIL": f"El archivo '{archivo}' no existe."
+        }
+        publicar_fn(f"invernadero/G9/arm64/{modulo}", json.dumps(err_res), qos=1)
+        return
+
+    # Validar rango inicial y final
+    try:
+        l_ini = int(linea_inicial)
+        l_fin = int(linea_final)
+    except ValueError:
+        err_res = {
+            "MODULE": "HISTORICAL_ANALYZER",
+            "STATUS": "ERROR",
+            "ERROR": "INVALID_RANGE",
+            "DETAIL": "Los límites de línea deben ser números enteros."
+        }
+        publicar_fn(f"invernadero/G9/arm64/{modulo}", json.dumps(err_res), qos=1)
+        return
+
+    if l_ini < 1 or l_fin < l_ini:
+        err_res = {
+            "MODULE": "HISTORICAL_ANALYZER",
+            "STATUS": "ERROR",
+            "ERROR": "INVALID_RANGE",
+            "DETAIL": f"Rango inválido: L{l_ini}-L{l_fin}."
+        }
+        publicar_fn(f"invernadero/G9/arm64/{modulo}", json.dumps(err_res), qos=1)
         return
 
     # Ensure output directory exists
@@ -54,26 +86,60 @@ def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, l
 
     target_csv = os.path.join(ARM64_DIR, "lecturas.csv")
     try:
-        rows_to_write = []
-        with open(CSV_PATH, mode='r', newline='', encoding='utf-8') as f:
+        # Leer filas de datos
+        data_rows = []
+        with open(archivo, mode='r', newline='', encoding='utf-8') as f:
             reader = csv.reader(f)
             header = next(reader)
-            rows_to_write.append(header)
             for row in reader:
                 if len(row) > 0 and row[0] == '$':
-                    rows_to_write.append(['$'])
                     break
-                if len(row) > max(1, indice):
-                    row[1] = row[indice]  
-                rows_to_write.append(row)
+                data_rows.append(row)
+
+        total_filas = len(data_rows)
+        if l_ini > total_filas or l_fin > total_filas:
+            err_res = {
+                "MODULE": "HISTORICAL_ANALYZER",
+                "STATUS": "ERROR",
+                "ERROR": "INVALID_RANGE",
+                "DETAIL": f"Las líneas solicitadas superan la longitud del archivo ({total_filas} filas)."
+            }
+            publicar_fn(f"invernadero/G9/arm64/{modulo}", json.dumps(err_res), qos=1)
+            return
+
+        sliced_rows = data_rows[l_ini - 1 : l_fin]
+
+        if len(sliced_rows) < 2:
+            err_res = {
+                "MODULE": "HISTORICAL_ANALYZER",
+                "STATUS": "ERROR",
+                "ERROR": "INSUFFICIENT_DATA",
+                "DETAIL": f"El rango seleccionado contiene {len(sliced_rows)} datos, se requieren al menos 2."
+            }
+            publicar_fn(f"invernadero/G9/arm64/{modulo}", json.dumps(err_res), qos=1)
+            return
+
+        rows_to_write = [header]
+        for row in sliced_rows:
+            if len(row) > max(1, indice):
+                row[1] = row[indice]  
+            rows_to_write.append(row)
+        rows_to_write.append(['$'])
 
         with open(target_csv, mode='w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerows(rows_to_write)
         
-        log_fn(f"[ARM64] CSV preparado en {target_csv}: columna {columna} mapeada a TEMP")
+        log_fn(f"[ARM64] CSV preparado en {target_csv}: columna {columna} mapeada a TEMP con rango L{l_ini}-L{l_fin}")
     except Exception as e:
         log_fn(f"[ARM64] Error al preprocesar CSV: {e}")
+        err_res = {
+            "MODULE": "HISTORICAL_ANALYZER",
+            "STATUS": "ERROR",
+            "ERROR": "INTERNAL_ERROR",
+            "DETAIL": f"Error al preprocesar CSV: {e}"
+        }
+        publicar_fn(f"invernadero/G9/arm64/{modulo}", json.dumps(err_res), qos=1)
         return
 
     import sys

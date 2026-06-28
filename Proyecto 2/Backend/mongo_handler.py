@@ -226,7 +226,6 @@ def guardar_decision_motor(lectura: dict, res: dict):
         target = res.get("TARGET", "GENERAL")
         reason = res.get("REASON", "NORMAL_CONDITIONS")
         
-        # Mapeamos a enteros si es posible
         try:
             val_int = int(res.get("VALUE", "0"))
         except ValueError:
@@ -255,7 +254,7 @@ def guardar_decision_motor(lectura: dict, res: dict):
         if status_raw == "ERROR":
             doc["error_detail"] = f"{res.get('ERROR', '')}: {res.get('DETAIL', '')}"
 
-        _db["arm64_results"].insert_one(doc)
-        print(f"[MongoDB] Decisión Motor Guardada: {action} ({risk})")
+        _db["arm_motor"].insert_one(doc)
+        print(f"[MongoDB] Decisión Motor Guardada en arm_motor: {action} ({risk})")
     except Exception as e:
-        print(f"[MongoDB] Error guardando decision del motor: {e}")
+        print(f"[MongoDB] Error guardando decision del motor en arm_motor: {e}")
