@@ -1,2 +1,5 @@
-/home/angel/Desktop/ARQUI1V1S_G9/Proyecto 2/PROYECTO 2 VACACIONES V2.md
-/home/angel/Desktop/ARQUI1V1S_G9/Proyecto 2/projects/*
+*package-lock.json
+*package.json
+*.env
+node_modules/
+

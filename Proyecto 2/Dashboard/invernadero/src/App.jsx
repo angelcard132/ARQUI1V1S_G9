@@ -42,7 +42,7 @@ export default function App() {
   return (
     <AuthProvider>
       <InvernaderoProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <Routes>
             {/* Login público */}
             <Route path="/login" element={<Login />} />
