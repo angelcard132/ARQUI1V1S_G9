@@ -1,51 +1,59 @@
 .section .data
 
-out_filename: .asciz "resultado_derivada.txt"
+out_filename:
+    .asciz "resultado_derivada.txt"
 
-str_calc: .ascii "CALC=LOCAL_DERIVATIVE COLUMN="
+str_calc:
+    .ascii "CALC=LOCAL_DERIVATIVE COLUMN="
 len_calc = . - str_calc
 
-str_ws: .ascii " WINDOW_START="
+str_ws:
+    .ascii " WINDOW_START="
 len_ws = . - str_ws
 
-str_we: .ascii " WINDOW_END="
+str_we:
+    .ascii " WINDOW_END="
 len_we = . - str_we
 
-str_count: .ascii " COUNT="
+str_count:
+    .ascii " COUNT="
 len_count = . - str_count
 
-str_wsize: .ascii " WINDOW_SIZE=5"
+str_wsize:
+    .ascii " WINDOW_SIZE=5"
 len_wsize = . - str_wsize
 
-str_max: .ascii " MAX_LOCAL_SLOPE_X100="
+str_max:
+    .ascii " MAX_LOCAL_SLOPE_X100="
 len_max = . - str_max
 
-str_ok: .ascii " STATUS=OK\n"
+str_ok:
+    .ascii " STATUS=OK\n"
 len_ok = . - str_ok
 
-err_args: .ascii "STATUS=ERROR ERROR=INVALID_ARGS DETAIL=USE_FILE_START_END_COLUMN\n"
+err_args:
+    .ascii "STATUS=ERROR ERROR=INVALID_ARGS DETAIL=USE_FILE_START_END_COLUMN\n"
 len_err_args = . - err_args
 
-err_data: .ascii "STATUS=ERROR ERROR=INSUFFICIENT_DATA DETAIL=LOCAL_DERIVATIVE_REQUIRES_AT_LEAST_5_VALUES\n"
+err_data:
+    .ascii "STATUS=ERROR ERROR=INSUFFICIENT_DATA DETAIL=LOCAL_DERIVATIVE_REQUIRES_AT_LEAST_5_VALUES\n"
 len_err_data = . - err_data
 
-err_range: .ascii "STATUS=ERROR ERROR=INVALID_RANGE DETAIL=WINDOW_OUT_OF_RANGE\n"
+err_range:
+    .ascii "STATUS=ERROR ERROR=INVALID_RANGE DETAIL=WINDOW_OUT_OF_RANGE\n"
 len_err_range = . - err_range
 
-err_col: .ascii "STATUS=ERROR ERROR=INVALID_COLUMN DETAIL=COLUMN_NOT_SUPPORTED\n"
+err_col:
+    .ascii "STATUS=ERROR ERROR=INVALID_COLUMN DETAIL=COLUMN_NOT_SUPPORTED\n"
 len_err_col = . - err_col
 
 .section .bss
 
-values: .space 8192
-ascii_buf: .space 32
-fd_out: .quad 0
-arg_file: .quad 0
-arg_start: .quad 0
-arg_end: .quad 0
-arg_col: .quad 0
-count_val: .quad 0
-max_slope: .quad 0
+values:
+    .space 8192
+
+ascii_buf:
+    .space 32
 
 .section .text
 .global _start
@@ -55,204 +63,177 @@ _start:
     cmp x0, #5
     blt error_args
 
-    ldr x9, [sp, #16]
-    adr x10, arg_file
-    str x9, [x10]
+    ldr x20, [sp, #16]
+    ldr x21, [sp, #24]
+    ldr x22, [sp, #32]
+    ldr x23, [sp, #40]
 
-    ldr x9, [sp, #24]
-    mov x0, x9
-    bl parse_int
-    adr x10, arg_start
-    str x0, [x10]
-
-    ldr x9, [sp, #32]
-    mov x0, x9
-    bl parse_int
-    adr x10, arg_end
-    str x0, [x10]
-
-    ldr x9, [sp, #40]
-    adr x10, arg_col
-    str x9, [x10]
-
-    adr x9, arg_file
-    ldr x0, [x9]
+    mov x0, x20
     bl read_csv
     cmp x0, #0
     blt error_range
 
-    adr x9, arg_col
-    ldr x0, [x9]
+    mov x0, x21
+    bl parse_int
+    mov x24, x0
+
+    mov x0, x22
+    bl parse_int
+    mov x25, x0
+
+    mov x0, x23
     bl column_name_to_index
     cmp x0, #0
     blt error_col
-    mov x21, x0
+    mov x26, x0
 
-    adr x9, arg_start
-    ldr x0, [x9]
-    adr x9, arg_end
-    ldr x1, [x9]
-    mov x2, x21
+    mov x0, x24
+    mov x1, x25
+    mov x2, x26
     adr x3, values
     bl read_range_column
     cmp x0, #5
     blt error_data
 
-    adr x9, count_val
-    str x0, [x9]
-    mov x22, x0
+    mov x27, x0
+    adr x28, values
 
     mov x19, #0
-    mov x28, #0
-    adr x27, values
+    mov x18, #0
 
-local_window_loop:
-    sub x10, x22, #5
-    cmp x19, x10
+window_loop:
+    sub x9, x27, #5
+    cmp x19, x9
     bgt write_output
 
-    mov x23, #0
-    mov x24, #0
+    mov x10, #0
+    mov x11, #0
+    mov x12, #0
 
-    ldr x10, [x27, x19, lsl #3]
-    add x24, x24, x10
+inner_loop:
+    cmp x12, #5
+    bge calc_slope
 
-    add x11, x19, #1
-    ldr x10, [x27, x11, lsl #3]
-    add x24, x24, x10
-    add x23, x23, x10
+    add x13, x19, x12
+    mov x14, #8
+    mul x15, x13, x14
+    add x16, x28, x15
+    ldr x17, [x16]
 
-    add x11, x19, #2
-    ldr x10, [x27, x11, lsl #3]
-    add x24, x24, x10
-    mov x12, #2
-    madd x23, x10, x12, x23
+    add x10, x10, x17
 
-    add x11, x19, #3
-    ldr x10, [x27, x11, lsl #3]
-    add x24, x24, x10
-    mov x12, #3
-    madd x23, x10, x12, x23
+    mul x15, x12, x17
+    add x11, x11, x15
 
-    add x11, x19, #4
-    ldr x10, [x27, x11, lsl #3]
-    add x24, x24, x10
-    mov x12, #4
-    madd x23, x10, x12, x23
+    add x12, x12, #1
+    b inner_loop
 
-    mov x10, #5
-    mul x11, x10, x23
+calc_slope:
+    mov x9, #5
+    mul x13, x9, x11
 
-    mov x10, #10
-    mul x12, x10, x24
+    mov x9, #10
+    mul x14, x9, x10
 
-    sub x13, x11, x12
+    sub x15, x13, x14
 
-    mov x10, #100
-    mul x13, x13, x10
+    mov x9, #100
+    mul x15, x15, x9
 
-    mov x10, #50
-    sdiv x14, x13, x10
+    mov x9, #50
+    sdiv x16, x15, x9
 
-    mov x0, x14
-    cmp x0, #0
+    cmp x16, #0
     bge abs_ready
-    neg x0, x0
+    sub x16, xzr, x16
 
 abs_ready:
-    cmp x0, x28
+    cmp x16, x18
     ble next_window
-    mov x28, x0
+    mov x18, x16
 
 next_window:
     add x19, x19, #1
-    b local_window_loop
+    b window_loop
 
 write_output:
-    adr x9, max_slope
-    str x28, [x9]
-
     adr x0, out_filename
     bl open_output
     cmp x0, #0
     blt error_range
-    adr x9, fd_out
-    str x0, [x9]
+    mov x19, x0
 
+    mov x0, x19
     adr x1, str_calc
     mov x2, #len_calc
-    bl write_fd
+    bl write_result
 
-    adr x9, arg_col
-    ldr x0, [x9]
+    mov x0, x23
     bl strlen
     mov x2, x0
-    adr x9, arg_col
-    ldr x1, [x9]
-    bl write_fd
+    mov x0, x19
+    mov x1, x23
+    bl write_result
 
+    mov x0, x19
     adr x1, str_ws
     mov x2, #len_ws
-    bl write_fd
-    adr x9, arg_start
-    ldr x0, [x9]
-    bl write_num
+    bl write_result
+    mov x0, x24
+    bl write_number
 
+    mov x0, x19
     adr x1, str_we
     mov x2, #len_we
-    bl write_fd
-    adr x9, arg_end
-    ldr x0, [x9]
-    bl write_num
+    bl write_result
+    mov x0, x25
+    bl write_number
 
+    mov x0, x19
     adr x1, str_count
     mov x2, #len_count
-    bl write_fd
-    adr x9, count_val
-    ldr x0, [x9]
-    bl write_num
+    bl write_result
+    mov x0, x27
+    bl write_number
 
+    mov x0, x19
     adr x1, str_wsize
     mov x2, #len_wsize
-    bl write_fd
+    bl write_result
 
+    mov x0, x19
     adr x1, str_max
     mov x2, #len_max
-    bl write_fd
-    adr x9, max_slope
-    ldr x0, [x9]
-    bl write_num
+    bl write_result
+    mov x0, x18
+    bl write_number
 
+    mov x0, x19
     adr x1, str_ok
     mov x2, #len_ok
-    bl write_fd
+    bl write_result
 
-    adr x9, fd_out
-    ldr x0, [x9]
+    mov x0, x19
     bl close_fd
 
     mov x0, #0
     mov x8, #93
     svc #0
 
-write_fd:
-    stp x29, x30, [sp, #-16]!
-    mov x29, sp
-    adr x9, fd_out
-    ldr x0, [x9]
-    bl write_result
-    ldp x29, x30, [sp], #16
-    ret
+write_number:
+    sub sp, sp, #16
+    str x30, [sp]
 
-write_num:
-    stp x29, x30, [sp, #-16]!
-    mov x29, sp
     adr x1, ascii_buf
     bl int_to_ascii
+
     mov x2, x0
+    mov x0, x19
     adr x1, ascii_buf
-    bl write_fd
-    ldp x29, x30, [sp], #16
+    bl write_result
+
+    ldr x30, [sp]
+    add sp, sp, #16
     ret
 
 strlen:
@@ -290,6 +271,7 @@ error_range:
 write_error:
     mov x0, #1
     bl write_result
+
     mov x0, #1
     mov x8, #93
     svc #0
