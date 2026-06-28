@@ -13,7 +13,7 @@ len_err_range = . - err_range
 err_column: .ascii "ERROR=INVALID_COLUMN\n"
 len_err_column = . - err_column
 
-// msg errores modulo_rmse
+// Mensajes reutilizables para errores estructurados
 .global lbl_status_err
 lbl_status_err: .ascii "STATUS=ERROR\n"
 len_lbl_status_err = . - lbl_status_err
@@ -30,7 +30,6 @@ err_rango_msg: .asciz "INVALID_RANGE\nDETAIL=RANGE_OUT_OF_BOUNDS_OR_INVALID\n"
 
 .global num_buffer
 num_buffer: .skip 32
-// --------------------
 
 .align 8
 .global csv_buffer
@@ -43,20 +42,21 @@ csv_bytes_read: .quad 0
 tmp_col_buf: .space 32
 stdin_buffer: .space 256
 
-
 .section .text
-.global print_uint, write_stdout, print_cstr, report_error
 .global open_csv, read_csv, get_column, parse_int
 .global int_to_ascii, write_result, open_output, close_fd, newline
 .global count_rows, read_range_column, column_name_to_index
 .global read_stdin_line, write_stdout, sqrt_int, abs_int
+.global print_uint, print_cstr, report_error
 
 open_csv:
     cbnz x0, oc_use_arg
     ldr x1, =default_csv
     b oc_open
+
 oc_use_arg:
     mov x1, x0
+
 oc_open:
     mov x0, #-100
     mov x2, #0
@@ -75,6 +75,7 @@ read_csv:
     blt rc_err
 
     mov x19, x0
+
     mov x0, x19
     adr x1, csv_buffer
     mov x2, #131072
@@ -94,23 +95,29 @@ read_csv:
     ldr x0, [x9]
 
     ldr x19, [sp], #16
-    ldp x29, x30, [sp], #16
+    ldr x29, [sp]
+    ldr x30, [sp, #8]
+    add sp, sp, #16
     ret
 
 rc_err:
     mov x0, #-1
     ldr x19, [sp], #16
-    ldp x29, x30, [sp], #16
+    ldr x29, [sp]
+    ldr x30, [sp, #8]
+    add sp, sp, #16
     ret
 
 rd_err:
-    mov x0, #-2
-    mov x1, x19
+    mov x0, x19
     mov x8, #57
     svc #0
+
     mov x0, #-2
     ldr x19, [sp], #16
-    ldp x29, x30, [sp], #16
+    ldr x29, [sp]
+    ldr x30, [sp, #8]
+    add sp, sp, #16
     ret
 
 get_column:
@@ -143,7 +150,8 @@ gc_rows:
     beq gc_nf
     cmp w9, #10
     bne gc_rows
-    subs x19, x19, #1
+    sub x19, x19, #1
+    cmp x19, #0
     bne gc_rows
 
 gc_row:
@@ -158,7 +166,8 @@ gc_cols:
     beq gc_nf
     cmp w9, #','
     bne gc_cols
-    subs x20, x20, #1
+    sub x20, x20, #1
+    cmp x20, #0
     bne gc_cols
 
 gc_copy:
@@ -181,19 +190,32 @@ gc_loop:
     b gc_loop
 
 gc_done:
-    strb wzr, [x21, x24]
+    mov w9, #0
+    strb w9, [x21, x24]
     mov x0, x24
     b gc_exit
 
 gc_nf:
     mov x0, #0
-    strb wzr, [x21]
+    mov w9, #0
+    strb w9, [x21]
 
 gc_exit:
-    ldp x23, x24, [sp], #16
-    ldp x21, x22, [sp], #16
-    ldp x19, x20, [sp], #16
-    ldp x29, x30, [sp], #16
+    ldr x23, [sp]
+    ldr x24, [sp, #8]
+    add sp, sp, #16
+
+    ldr x21, [sp]
+    ldr x22, [sp, #8]
+    add sp, sp, #16
+
+    ldr x19, [sp]
+    ldr x20, [sp, #8]
+    add sp, sp, #16
+
+    ldr x29, [sp]
+    ldr x30, [sp, #8]
+    add sp, sp, #16
     ret
 
 count_rows:
@@ -224,7 +246,9 @@ cr_loop:
 
 cr_done:
     ldr x19, [sp], #16
-    ldp x29, x30, [sp], #16
+    ldr x29, [sp]
+    ldr x30, [sp, #8]
+    add sp, sp, #16
     ret
 
 read_range_column:
@@ -269,7 +293,11 @@ rrc_loop:
     adr x0, tmp_col_buf
     bl parse_int
 
-    str x0, [x22, x25, lsl #3]
+    mov x9, #8
+    mul x10, x25, x9
+    add x11, x22, x10
+    str x0, [x11]
+
     add x25, x25, #1
     add x23, x23, #1
     b rrc_loop
@@ -283,11 +311,26 @@ rrc_error:
 
 rrc_exit:
     ldr x27, [sp], #16
-    ldp x25, x26, [sp], #16
-    ldp x23, x24, [sp], #16
-    ldp x21, x22, [sp], #16
-    ldp x19, x20, [sp], #16
-    ldp x29, x30, [sp], #16
+
+    ldr x25, [sp]
+    ldr x26, [sp, #8]
+    add sp, sp, #16
+
+    ldr x23, [sp]
+    ldr x24, [sp, #8]
+    add sp, sp, #16
+
+    ldr x21, [sp]
+    ldr x22, [sp, #8]
+    add sp, sp, #16
+
+    ldr x19, [sp]
+    ldr x20, [sp, #8]
+    add sp, sp, #16
+
+    ldr x29, [sp]
+    ldr x30, [sp, #8]
+    add sp, sp, #16
     ret
 
 column_name_to_index:
@@ -355,15 +398,15 @@ pi_d:
     cmp w3, #'9'
     bgt pi_e
     sub w3, w3, #'0'
-    add x0, x0, x0, lsl #2
-    add x0, x0, x0
+    mov x4, #10
+    mul x0, x0, x4
     add x0, x0, x3
     add x1, x1, #1
     b pi_d
 
 pi_e:
     cbz x2, pi_ret
-    neg x0, x0
+    sub x0, xzr, x0
 
 pi_ret:
     ret
@@ -384,7 +427,7 @@ int_to_ascii:
 
     cmp x19, #0
     bge ita_l
-    neg x19, x19
+    sub x19, xzr, x19
     mov x24, #1
 
 ita_l:
@@ -421,14 +464,27 @@ ita_rev:
     b ita_rev
 
 ita_d:
-    strb wzr, [x20, x23]
+    mov w10, #0
+    strb w10, [x20, x23]
     mov x0, x23
 
     add sp, sp, #32
-    ldp x23, x24, [sp], #16
-    ldp x21, x22, [sp], #16
-    ldp x19, x20, [sp], #16
-    ldp x29, x30, [sp], #16
+
+    ldr x23, [sp]
+    ldr x24, [sp, #8]
+    add sp, sp, #16
+
+    ldr x21, [sp]
+    ldr x22, [sp, #8]
+    add sp, sp, #16
+
+    ldr x19, [sp]
+    ldr x20, [sp, #8]
+    add sp, sp, #16
+
+    ldr x29, [sp]
+    ldr x30, [sp, #8]
+    add sp, sp, #16
     ret
 
 open_output:
@@ -489,7 +545,8 @@ rsl_zero_loop:
     b rsl_zero_loop
 
 rsl_put_zero:
-    strb wzr, [x1, x2]
+    mov w3, #0
+    strb w3, [x1, x2]
 
 rsl_finish:
     adr x0, stdin_buffer
@@ -516,12 +573,10 @@ sqrt_done:
 abs_int:
     cmp x0, #0
     bge abs_done
-    neg x0, x0
+    sub x0, xzr, x0
 
 abs_done:
     ret
-
-// funciones utilizadas en modulo_rmse
 
 print_cstr:
     mov x1, x0
@@ -532,7 +587,7 @@ cstr_len:
     cbz w3, cstr_print
     add x2, x2, #1
     b cstr_len
-    
+
 cstr_print:
     mov x0, #1
     mov x8, #64
@@ -546,10 +601,12 @@ print_uint:
     strb w2, [x1]
     mov x3, #10
     mov x4, #0
+
     cmp x0, #0
     bne convert_loop
+
     sub x1, x1, #1
-    mov w2, '0'
+    mov w2, #'0'
     strb w2, [x1]
     mov x4, #1
     b write_number
@@ -557,7 +614,7 @@ print_uint:
 convert_loop:
     udiv x5, x0, x3
     msub x6, x5, x3, x0
-    add x6, x6, '0'
+    add x6, x6, #'0'
     sub x1, x1, #1
     strb w6, [x1]
     add x4, x4, #1
@@ -585,4 +642,3 @@ report_error:
     mov x0, x9
     bl print_cstr
     ret
-    
