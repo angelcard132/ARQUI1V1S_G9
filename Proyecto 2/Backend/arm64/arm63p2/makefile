@@ -1,10 +1,4 @@
-#  Uso:
-#    make            → compila todo
-#    make modulo_5   → compila los modulos, cambiar para el modulo deseado
-#    make clean      → borra binarios y .o
-#    make run_all    → ejecuta los 5 módulos en orden
-#    make test_5     → compila y ejecuta solo el módulo 5
-# =============================================================
+
 
 AS      = as
 LD      = ld
