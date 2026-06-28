@@ -9,6 +9,7 @@ from RPLCD.i2c import CharLCD
 from mqtt_handler import configurar_mqtt, publicar, publicar_sensor, publicar_estado_global
 from collections import deque
 from mongo_handler import conectar, agregar_lectura_memoria, guardar_estado_sistema
+from arm64_live_runner import ARM64LiveRunner
 
 
 PIN_LUZ1 = 23
@@ -142,6 +143,14 @@ estado["lock"] = lock
 
 ultimo_riego = 0
 riego_en_curso = False
+tiempo_inicio_riego = 0
+cooldown_riego = 0
+
+# Instanciar e iniciar el motor vivo ARM64
+motor_vivo = ARM64LiveRunner("./arm64/Motor64/motor_vivo_nuevo")
+motor_activo = motor_vivo.iniciar()
+if not motor_activo:
+    print("[ARM64 LIVE] ADVERTENCIA: No se pudo iniciar el motor vivo ARM64. Se usará el automatismos en Python.")
 
 
 def enviar_arduino(cmd):
@@ -167,11 +176,15 @@ def set_bomba(on):
 
 def set_bomba_area(area, on):
     with lock:
+        if estado[f"riego{area}"] == on:
+            return
         estado[f"riego{area}"] = on
         bomba_on = estado["riego1"] or estado["riego2"]
+        cambiar_bomba = (estado["bomba"] != bomba_on)
         estado["bomba"] = bomba_on
 
-    enviar_arduino(CMD_BOMBA_ON if bomba_on else CMD_BOMBA_OFF)
+    if cambiar_bomba:
+        enviar_arduino(CMD_BOMBA_ON if bomba_on else CMD_BOMBA_OFF)
     print(f"[BOMBA] Riego Area {area} -> {'ON' if on else 'OFF'}")
 
 
@@ -318,35 +331,10 @@ def riego_manual():
     ultimo_riego = 0
     activar_riego_cada_20s()
 
-
-def automatismos():
-    with lock:
-        modo = estado["modo"]
-        temp = estado["temp"]
-        luz = estado["luz"]
-        gas = estado["gas"]
-        suelo1 = estado["suelo1"]
-        bomba = estado["bomba"]
-
+def ejecutar_automatismos_python(modo, temp, luz, gas, suelo1):
     emergencia = False
     advertencia = False
 
-    if modo == "MANUAL":
-        if gas is not None and gas >= UMBRAL_GAS_EMERG:
-            set_ventilador(True)
-            set_buzzer(True)
-            emergencia = True
-
-        with lock:
-            if emergencia:
-                estado["global"] = "EMERGENCIA"
-            else:
-                estado["global"] = "MODO_MANUAL"
-            estado_global = estado["global"]
-        set_leds(estado_global)
-        return
-
-    # Modo AUTOMATICO
     if gas is not None:
         if gas >= UMBRAL_GAS_WARN:
             set_buzzer(True)
@@ -377,6 +365,152 @@ def automatismos():
             activar_riego_cada_20s()
             advertencia = True
 
+    with lock:
+        if emergencia:
+            estado["global"] = "EMERGENCIA"
+        elif estado["bomba"]:
+            estado["global"] = "RIEGO_ACTIVO"
+        elif advertencia:
+            estado["global"] = "ADVERTENCIA"
+        else:
+            estado["global"] = "NORMAL"
+
+        estado_global = estado["global"]
+
+    set_leds(estado_global)
+
+
+def automatismos():
+    with lock:
+        modo = estado["modo"]
+        temp = estado["temp"]
+        luz = estado["luz"]
+        gas = estado["gas"]
+        suelo1 = estado["suelo1"]
+        suelo2 = estado["suelo2"]
+        hum = estado["hum"]
+        bomba = estado["bomba"]
+
+    # Modo MANUAL: se maneja en Python para garantizar la seguridad del gas de forma directa
+    if modo == "MANUAL":
+        emergencia = False
+        if gas is not None and gas >= UMBRAL_GAS_EMERG:
+            set_ventilador(True)
+            set_buzzer(True)
+            emergencia = True
+
+        with lock:
+            if emergencia:
+                estado["global"] = "EMERGENCIA"
+            else:
+                estado["global"] = "MODO_MANUAL"
+            estado_global = estado["global"]
+        set_leds(estado_global)
+        return
+
+    if not motor_activo:
+        ejecutar_automatismos_python(modo, temp, luz, gas, suelo1)
+        return
+
+    # Usar el Motor Vivo ARM64
+    lectura = {
+        "temp": temp,
+        "hum": hum,
+        "suelo1": suelo1,
+        "suelo2": suelo2,
+        "luz": luz,
+        "gas": gas,
+    }
+
+    res = motor_vivo.consultar(lectura, modo)
+    action = res.get("ACTION", "NO_ACTION")
+    risk = res.get("RISK", "LOW")
+    target = res.get("TARGET", "GENERAL")
+
+    global tiempo_inicio_riego, cooldown_riego
+    ahora = time.time()
+    
+    if ahora < cooldown_riego:
+        if action in ("RIEGO_1_ON", "RIEGO_2_ON"):
+            action = "LED_GREEN"
+            risk = "LOW"
+            target = "GENERAL"
+            
+    if action in ("RIEGO_1_ON", "RIEGO_2_ON"):
+        if not bomba:
+            if tiempo_inicio_riego == 0:
+                tiempo_inicio_riego = ahora
+        else:
+            if tiempo_inicio_riego != 0 and ahora - tiempo_inicio_riego > 10:
+                print("[RIEGO SEGURIDAD] Límite de 10s alcanzado. Desactivando bomba y aplicando cooldown de 20s.")
+                action = "LED_GREEN"
+                risk = "LOW"
+                target = "GENERAL"
+                cooldown_riego = ahora + 20
+                tiempo_inicio_riego = 0
+    else:
+        tiempo_inicio_riego = 0
+
+    print(f"[ARM64 LIVE] Decisión: ACTION={action}, TARGET={target}, RISK={risk}")
+
+    # Ejecutar la acción decidida por el motor ARM64
+    emergencia = (risk == "CRITICAL")
+    advertencia = (risk == "HIGH")
+
+    if action == "ALARM_ON":
+        set_buzzer(True)
+        set_bomba(False)
+        set_luces(False)
+        
+        gas_emergencia = (gas is not None and gas >= UMBRAL_GAS_EMERG)
+        temp_alta = (temp is not None and temp >= UMBRAL_TEMP_ALTA)
+        
+        if gas_emergencia:
+            set_ventilador(True)
+            emergencia = True
+            advertencia = False
+        else:
+            if temp_alta:
+                set_ventilador(True)
+            else:
+                set_ventilador(False)
+            emergencia = False
+            advertencia = True
+    elif action == "RIEGO_1_ON":
+        set_buzzer(False)
+        set_bomba_area(1, True)
+        set_bomba_area(2, False)
+        set_luces(False)
+        set_ventilador(False)
+        advertencia = True
+    elif action == "RIEGO_2_ON":
+        set_buzzer(False)
+        set_bomba_area(1, False)
+        set_bomba_area(2, True)
+        set_luces(False)
+        set_ventilador(False)
+        advertencia = True
+    elif action == "LIGHT_ON":
+        set_buzzer(False)
+        set_bomba(False)
+        set_luces(True)
+        set_ventilador(False)
+        advertencia = True
+    elif action == "FAN_ON":
+        set_buzzer(False)
+        set_bomba(False)
+        set_luces(False)
+        set_ventilador(True)
+        advertencia = True
+    elif action == "LED_GREEN":
+        set_buzzer(False)
+        set_bomba(False)
+        set_luces(False)
+        set_ventilador(False)
+    elif action == "NO_ACTION":
+        pass
+
+    # Actualizar estado global según el nivel de riesgo reportado por el motor ARM
     with lock:
         if emergencia:
             estado["global"] = "EMERGENCIA"

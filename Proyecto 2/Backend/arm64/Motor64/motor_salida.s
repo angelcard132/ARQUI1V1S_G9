@@ -98,36 +98,31 @@ decidir_accion:
     cmp x1, #5
     blt print_startup
 
-    // GAS promedio alto o amplitud alta
-    cmp x9, #400
+    // GAS promedio alto o amplitud alta 
+    cmp x9, #80
     bge print_alarm
 
     cmp x10, #150
     bge print_alarm
 
-    // SUELO1 promedio bajo y tendencia descendente
+    // SUELO1 promedio bajo 
     cmp x11, #35
-    bge check_suelo2
-    cmp x12, #0
     blt print_riego1
 
 check_suelo2:
+    // SUELO2 promedio bajo
     cmp x13, #35
-    bge check_luz
-    cmp x14, #0
     blt print_riego2
 
 check_luz:
-    cmp x15, #300
-    bge check_temp
-    cmp x16, #0
+    // LUZ promedio baja
+    cmp x15, #870
     blt print_light
 
 check_temp:
+    // TEMP promedio alta
     cmp x17, #30
-    blt print_green
-    cmp x18, #0
-    bgt print_fan
+    bge print_fan
 
     b print_green
 

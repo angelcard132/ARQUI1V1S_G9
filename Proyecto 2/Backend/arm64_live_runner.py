@@ -62,23 +62,23 @@ class ARM64LiveRunner:
 
     def consultar(self, lectura, modo="AUTOMATICO"):
         if self._binario_faltante:
-            return "ACTION=NO_ACTION"
+            return {"ACTION": "NO_ACTION"}
 
         if not self._proceso_vivo():
             codigo = self.proc.poll() if self.proc else None
             print(f"[ARM64 LIVE] El proceso no está vivo (exit code={codigo}). Reiniciando...")
             self.iniciar()
             if not self._proceso_vivo():
-                return "ACTION=NO_ACTION"
+                return {"ACTION": "NO_ACTION"}
 
         modo_num = 0 if modo == "AUTOMATICO" else 1
         linea = (
-            f"{int(lectura['temp'])},"
-            f"{int(lectura['hum'])},"
-            f"{int(lectura['suelo1'])},"
-            f"{int(lectura['suelo2'])},"
-            f"{int(lectura['luz'])},"
-            f"{int(lectura['gas'])},"
+            f"{int(round(lectura['temp'])) if lectura.get('temp') is not None else 0},"
+            f"{int(round(lectura['hum'])) if lectura.get('hum') is not None else 0},"
+            f"{int(round(lectura['suelo1'])) if lectura.get('suelo1') is not None else 0},"
+            f"{int(round(lectura['suelo2'])) if lectura.get('suelo2') is not None else 0},"
+            f"{int(round(lectura['luz'])) if lectura.get('luz') is not None else 0},"
+            f"{int(round(lectura['gas'])) if lectura.get('gas') is not None else 0},"
             f"{modo_num}\n"
         )
 
@@ -88,24 +88,36 @@ class ARM64LiveRunner:
         except (BrokenPipeError, OSError) as e:
             print(f"[ARM64 LIVE] Pipe roto al escribir ({e}). Reiniciando...")
             self.iniciar()
-            return "ACTION=NO_ACTION"
+            return {"ACTION": "NO_ACTION"}
 
+        lines = []
         try:
-            respuesta = self.proc.stdout.readline()
+            while True:
+                line = self.proc.stdout.readline()
+                if not line:
+                    break
+                line = line.strip()
+                lines.append(line)
+                if line.startswith("STATUS="):
+                    break
         except (BrokenPipeError, OSError, ValueError) as e:
             print(f"[ARM64 LIVE] Error al leer respuesta ({e}). Reiniciando...")
             self.iniciar()
-            return "ACTION=NO_ACTION"
+            return {"ACTION": "NO_ACTION"}
 
-        if respuesta == "":
-            # stdout vacío con proceso "vivo" en este instante == el proceso
-            # cerró su stdout (terminando o crasheando justo ahora).
+        if not lines:
             codigo = self.proc.poll()
             print(f"[ARM64 LIVE] Respuesta vacía — el proceso terminó (exit code={codigo}). Reiniciando...")
             self.iniciar()
-            return "ACTION=NO_ACTION"
+            return {"ACTION": "NO_ACTION"}
 
-        return respuesta.strip()
+        res = {}
+        for line in lines:
+            if "=" in line:
+                k, v = line.split("=", 1)
+                res[k.strip()] = v.strip()
+
+        return res
 
     def cerrar(self):
         if self.proc is None:
