@@ -353,7 +353,25 @@ col_temp:
     ret
 
 col_hum:
+    ldrb w9, [x0, #4]
+    cmp w9, #'A'
+    beq col_hum_aire
+    cmp w9, #'S'
+    beq col_hum_suelo
+    mov x0, #-1
+    ret
+
+col_hum_aire:
     mov x0, #2
+    ret
+
+col_hum_suelo:
+    ldrb w9, [x0, #10]
+    cmp w9, #'1'
+    beq col_soil1
+    cmp w9, #'2'
+    beq col_soil2
+    mov x0, #-1
     ret
 
 col_soil:

@@ -255,7 +255,7 @@ set_ideal:
     cmp w9, #'T'
     beq ideal_temp
     cmp w9, #'H'
-    beq ideal_hum
+    beq ideal_hum_check
     cmp w9, #'S'
     beq ideal_soil
     cmp w9, #'L'
@@ -265,6 +265,12 @@ set_ideal:
 
     mov x9, #50
     b ideal_save
+
+ideal_hum_check:
+    ldrb w9, [x0, #4]
+    cmp w9, #'S'
+    beq ideal_soil
+    b ideal_hum
 
 ideal_temp:
     mov x9, #25
@@ -560,7 +566,22 @@ save_recommendation:
     beq rec_soil
     cmp w9, #'T'
     beq rec_temp
+    cmp w9, #'H'
+    beq rec_hum_rec_check
 
+    adr x9, rec_normal
+    adr x10, val_rec_ptr
+    str x9, [x10]
+    mov x9, #len_rec_normal
+    adr x10, val_rec_len
+    str x9, [x10]
+    b reason_normal_save
+
+rec_hum_rec_check:
+    ldrb w9, [x0, #4]
+    cmp w9, #'S'
+    beq rec_soil
+    
     adr x9, rec_normal
     adr x10, val_rec_ptr
     str x9, [x10]
@@ -573,6 +594,9 @@ rec_soil:
     adr x9, arg_col
     ldr x0, [x9]
     ldrb w9, [x0, #4]
+    cmp w9, #'2'
+    beq rec_soil2
+    ldrb w9, [x0, #10]
     cmp w9, #'2'
     beq rec_soil2
 

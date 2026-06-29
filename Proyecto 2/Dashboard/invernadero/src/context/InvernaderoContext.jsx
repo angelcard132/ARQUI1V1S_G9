@@ -303,7 +303,7 @@ export function InvernaderoProvider({ children }) {
             return;
           }
 
-          const mod = data.MODULE || ''
+          const mod = data.MODULE || data.CALC || ''
           const arm = {}
           const meta = { columna: data.COLUMNA || data.COLUMN || null }
 
@@ -398,7 +398,7 @@ export function InvernaderoProvider({ children }) {
 
     resetEstado:     () => publicar('global',       'RESET'),
 
-    ejecutarArm64:   (modulo, columna) => publicarArm64(modulo, columna),
+    ejecutarArm64:   (modulo, columna, archivo, lineaInicial, lineaFinal) => publicarArm64(modulo, columna, archivo, lineaInicial, lineaFinal),
   }
 
   return (

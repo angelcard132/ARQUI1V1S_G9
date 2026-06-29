@@ -3,9 +3,7 @@ LD = aarch64-linux-gnu-ld
 
 UTILS = utils.o
 
-PROGRAMS = motor_vivo \
-           analizador_historico \
-           modulo_1_rmse \
+PROGRAMS = modulo_1_rmse \
            modulo_2_regresion \
            modulo_3_prediccion \
            modulo_4_integral_error \

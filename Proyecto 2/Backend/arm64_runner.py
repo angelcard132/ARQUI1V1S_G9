@@ -368,14 +368,27 @@ def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, l
         if not os.path.exists(bin_path):
             log_fn(f"[ARM64] Binario no encontrado: {bin_path}")
             return
+        
+        ideal = 25
+        if columna == "TEMP": ideal = 25
+        elif columna == "HUM_AIRE": ideal = 60
+        elif columna in ("HUM_SUELO_1", "HUM_SUELO_2"): ideal = 55
+        elif columna == "LUZ": ideal = 500
+        elif columna == "GAS": ideal = 150
+        
+
+        cmd_args = [f"./{modulo}", "lecturas.csv", str(l_ini), str(l_fin), columna]
+        if modulo in ("modulo_1_rmse", "modulo_4_integral_error"):
+            cmd_args.append(str(ideal))
+
         try:
             subprocess.run(
-                [f"./{modulo}"],
+                cmd_args,
                 cwd=ARM64_DIR,
                 timeout=15,
                 check=True,
             )
-            log_fn(f"[ARM64] {modulo} ejecutado sobre columna {columna}")
+            log_fn(f"[ARM64] {modulo} ejecutado con argumentos: {cmd_args}")
         except subprocess.TimeoutExpired:
             log_fn(f"[ARM64] {modulo} excedio el tiempo limite")
             return
