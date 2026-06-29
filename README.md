@@ -376,3 +376,5 @@ Aquí se documentan fotografías del proceso de la maqueta y circuitos electroni
     </td>
   </tr>
 </table>
+
+Referencia de auditoría - 2: 2026-06-15 00:22:17
