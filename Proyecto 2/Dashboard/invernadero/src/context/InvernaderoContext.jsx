@@ -52,8 +52,8 @@ const initialState = {
     rmse:       null,
     regresion:  null,
     prediccionF2: null,
-    integral:   null,
     derivada:   null,
+    historico:  null,
     ultimoError: null,
   },
   arm64Ejecutando: null, // { modulo, columna } mientras espera resultado
@@ -324,9 +324,29 @@ export function InvernaderoProvider({ children }) {
           if (mod === 'ERROR_INTEGRAL')    arm.integral   = { integral: data.ERROR_INTEGRAL, ideal: data.IDEAL, ...meta }
           if (mod === 'LOCAL_DERIVATIVE')  arm.derivada   = { maxSlope: data.MAX_LOCAL_SLOPE_X100, windowSize: data.WINDOW_SIZE, ...meta }
 
+          if (sub === 'arm64/analizador_historico') {
+            arm.historico = {
+              windowStart: data.WINDOW_START,
+              windowEnd: data.WINDOW_END,
+              columna: data.COLUMN || data.COLUMNA || null,
+              count: data.COUNT,
+              ideal: data.IDEAL,
+              rmse: data.RMSE,
+              slope: data.SLOPE_X100,
+              trend: data.TREND,
+              predicted: data.PREDICTED_10 || data.PREDICTED_5,
+              integral: data.ERROR_INTEGRAL,
+              maxSlope: data.MAX_LOCAL_SLOPE_X100,
+              maxAcceleration: data.MAX_ACCELERATION_X100,
+              recommendation: data.RECOMMENDATION,
+              reason: data.REASON,
+              ...meta
+            }
+          }
+
           if (Object.keys(arm).length) {
             dispatch({ type: 'ARM64', data: arm })
-            addEvento(`Resultado ARM64 recibido: ${mod}`, 'ok')
+            addEvento(`Resultado ARM64 recibido: ${mod || 'Analizador Histórico'}`, 'ok')
           }
         }
     }

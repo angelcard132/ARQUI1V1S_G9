@@ -7,9 +7,13 @@ PROGRAMS = modulo_1_rmse \
            modulo_2_regresion \
            modulo_3_prediccion \
            modulo_4_integral_error \
-           modulo_5_derivada_local
+           modulo_5_derivada_local \
+		   analizador_historico
 
 all: $(PROGRAMS)
+
+analizador_historico: analizador_historico.o $(UTILS)
+	$(LD) -o analizador_historico analizador_historico.o $(UTILS)
 
 utils.o: utils.s
 	$(AS) -o utils.o utils.s

@@ -25,6 +25,14 @@ function getCmdStyle(cmd) {
   return { background: '#f5d0d0', color: '#9b2020' }
 }
 
+function getRecommendationColor(rec) {
+  if (!rec) return { bg: '#e4e0d6', fg: '#4a5240' }
+  const r = rec.toUpperCase()
+  if (r.includes('RIEGO')) return { bg: '#e0f0fd', fg: '#0b5b9e' }
+  if (r.includes('VENTILACION')) return { bg: '#fdf3e0', fg: '#b86b0a' }
+  if (r.includes('ESTABLE')) return { bg: '#eaf4e3', fg: '#3a6b1a' }
+  return { bg: '#f5f2eb', fg: '#1a1c16' }
+}
 
 /*  Panel wrapper  */
 function Panel({ title, icon, children, right }) {
@@ -209,8 +217,16 @@ function ArmFila({ label, value, color }) {
 
 /*  Dashboard principal  */
 export default function Dashboard() {
-  const { state, publicar } = useInvernadero()
+  const { state, cmd, publicar } = useInvernadero()
   const T = THRESHOLDS
+
+  const [histColumna, setHistColumna] = React.useState('TEMP')
+  const [histStart, setHistStart] = React.useState(1)
+  const [histEnd, setHistEnd] = React.useState(30)
+
+  const handleEjecutarHistorico = () => {
+    cmd.ejecutarArm64('analizador_historico', histColumna, 'lecturas.csv', histStart, histEnd)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -422,8 +438,8 @@ export default function Dashboard() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <i
                         className={`ti ${state.arm64.tendencia.trend === 'UP' ? 'ti-trending-up' :
-                            state.arm64.tendencia.trend === 'DOWN' ? 'ti-trending-down' :
-                              'ti-minus'
+                          state.arm64.tendencia.trend === 'DOWN' ? 'ti-trending-down' :
+                            'ti-minus'
                           }`}
                         style={{
                           fontSize: 22,
@@ -556,14 +572,219 @@ export default function Dashboard() {
 
         </Panel>
 
-        <Panel title="Ultimos eventos" icon="ti-history" id="eventos">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 340, overflowY: 'auto' }}>
-            {state.eventos.length === 0
-              ? <div style={{ textAlign: 'center', color: '#8a9280', fontSize: 12, padding: '20px 0' }}>Sin eventos aun</div>
-              : state.eventos.map(ev => <EvItem key={ev.id} ev={ev} />)
-            }
-          </div>
-        </Panel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          <Panel title="Analizador Histórico Consolidado" icon="ti-report-analytics" id="analizador-consolidado">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <label style={{ fontSize: 10, color: '#8a9280', fontWeight: 600, textTransform: 'uppercase' }}>Sensor / Columna</label>
+                  <select
+                    value={histColumna}
+                    onChange={e => setHistColumna(e.target.value)}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: 6,
+                      border: '1px solid rgba(26,28,22,0.12)',
+                      background: '#fff',
+                      fontSize: 12,
+                      fontFamily: 'DM Sans,system-ui,sans-serif'
+                    }}
+                  >
+                    <option value="TEMP">Temperatura</option>
+                    <option value="HUM_AIRE">Humedad Aire</option>
+                    <option value="HUM_SUELO_1">Humedad Suelo 1</option>
+                    <option value="HUM_SUELO_2">Humedad Suelo 2</option>
+                    <option value="LUZ">Luz</option>
+                    <option value="GAS">Gas</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 10, color: '#8a9280', fontWeight: 600, textTransform: 'uppercase' }}>Línea Inicial</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={histStart}
+                      onChange={e => setHistStart(parseInt(e.target.value) || 1)}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: 6,
+                        border: '1px solid rgba(26,28,22,0.12)',
+                        background: '#fff',
+                        fontSize: 12,
+                        fontFamily: 'DM Mono,monospace'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 10, color: '#8a9280', fontWeight: 600, textTransform: 'uppercase' }}>Línea Final</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={histEnd}
+                      onChange={e => setHistEnd(parseInt(e.target.value) || 1)}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: 6,
+                        border: '1px solid rgba(26,28,22,0.12)',
+                        background: '#fff',
+                        fontSize: 12,
+                        fontFamily: 'DM Mono,monospace'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+
+              <button
+                onClick={handleEjecutarHistorico}
+                disabled={!state.mqttConnected || state.arm64Ejecutando?.modulo === 'analizador_historico'}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: state.arm64Ejecutando?.modulo === 'analizador_historico' ? '#ede8dc' : '#3a6b1a',
+                  color: state.arm64Ejecutando?.modulo === 'analizador_historico' ? '#8a9280' : '#ffffff',
+                  fontWeight: 600,
+                  cursor: state.arm64Ejecutando?.modulo === 'analizador_historico' ? 'not-allowed' : 'pointer',
+                  fontSize: 12,
+                  fontFamily: 'DM Sans,system-ui,sans-serif',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  transition: 'background 0.15s'
+                }}
+              >
+                {state.arm64Ejecutando?.modulo === 'analizador_historico' ? (
+                  <>
+                    <i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} />
+                    Procesando análisis consolidado...
+                  </>
+                ) : (
+                  <>
+                    <i className="ti ti-report-analytics" />
+                    Ejecutar Analizador Histórico
+                  </>
+                )}
+              </button>
+
+
+              {state.arm64.ultimoError?.modulo === 'analizador_historico' && (
+                <div style={{
+                  background: '#fdf3f3',
+                  border: '1px solid rgba(155,32,32,0.15)',
+                  borderRadius: 8,
+                  padding: '10px 12px',
+                  fontSize: 11,
+                  color: '#9b2020',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2
+                }}>
+                  <div style={{ fontWeight: 600 }}>Error de Ejecución:</div>
+                  <div>{state.arm64.ultimoError.detail}</div>
+                </div>
+              )}
+
+              {state.arm64.historico && state.arm64Ejecutando?.modulo !== 'analizador_historico' && (
+                <div style={{
+                  background: '#f5f2eb',
+                  border: '1px solid rgba(26,28,22,0.08)',
+                  borderRadius: 8,
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12
+                }}>
+                  {/* Cabecera del resultado */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: 10, color: '#8a9280', textTransform: 'uppercase', fontWeight: 600 }}>Sensor Analizado</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1c16' }}>{state.arm64.historico.columna}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                      <span style={{ fontSize: 10, color: '#8a9280', textTransform: 'uppercase', fontWeight: 600 }}>Rango Procesado</span>
+                      <span style={{ fontSize: 11, fontFamily: 'DM Mono,monospace', color: '#4a5240' }}>
+                        L{state.arm64.historico.windowStart} - L{state.arm64.historico.windowEnd} ({state.arm64.historico.count} datos)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Recomendación Destacada */}
+                  <div style={{
+                    background: getRecommendationColor(state.arm64.historico.recommendation).bg,
+                    border: '1px solid rgba(0,0,0,0.03)',
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4
+                  }}>
+                    <span style={{ fontSize: 9, color: '#8a9280', textTransform: 'uppercase', fontWeight: 600 }}>Recomendación Automatizada (ARM64)</span>
+                    <span style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: getRecommendationColor(state.arm64.historico.recommendation).fg,
+                      fontFamily: 'DM Sans,system-ui,sans-serif'
+                    }}>
+                      {state.arm64.historico.recommendation}
+                    </span>
+                    <span style={{ fontSize: 11, color: '#4a5240', fontFamily: 'DM Mono,monospace', marginTop: 4 }}>
+                      REASON: {state.arm64.historico.reason}
+                    </span>
+                  </div>
+
+                  {/* Métricas en Grid de 2x3 */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                    <div style={{ background: '#ffffff', borderRadius: 6, padding: '8px 10px', border: '1px solid rgba(26,28,22,0.04)' }}>
+                      <div style={{ fontSize: 9, color: '#8a9280', textTransform: 'uppercase' }}>RMSE (Ideal: {state.arm64.historico.ideal})</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1c16', fontFamily: 'DM Mono,monospace' }}>{state.arm64.historico.rmse}</div>
+                    </div>
+                    <div style={{ background: '#ffffff', borderRadius: 6, padding: '8px 10px', border: '1px solid rgba(26,28,22,0.04)' }}>
+                      <div style={{ fontSize: 9, color: '#8a9280', textTransform: 'uppercase' }}>Pendiente Regresión</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#3a6b1a', fontFamily: 'DM Mono,monospace' }}>{state.arm64.historico.slope}</div>
+                      <div style={{ fontSize: 8, color: '#8a9280', textTransform: 'uppercase' }}>{state.arm64.historico.trend}</div>
+                    </div>
+                    <div style={{ background: '#ffffff', borderRadius: 6, padding: '8px 10px', border: '1px solid rgba(26,28,22,0.04)' }}>
+                      <div style={{ fontSize: 9, color: '#8a9280', textTransform: 'uppercase' }}>Predicción (+10)</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1c16', fontFamily: 'DM Mono,monospace' }}>{state.arm64.historico.predicted}</div>
+                    </div>
+                    <div style={{ background: '#ffffff', borderRadius: 6, padding: '8px 10px', border: '1px solid rgba(26,28,22,0.04)' }}>
+                      <div style={{ fontSize: 9, color: '#8a9280', textTransform: 'uppercase' }}>Integral Error</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#b86b0a', fontFamily: 'DM Mono,monospace' }}>{state.arm64.historico.integral}</div>
+                    </div>
+                    <div style={{ background: '#ffffff', borderRadius: 6, padding: '8px 10px', border: '1px solid rgba(26,28,22,0.04)' }}>
+                      <div style={{ fontSize: 9, color: '#8a9280', textTransform: 'uppercase' }}>Derivada Local (Máx)</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#b86b0a', fontFamily: 'DM Mono,monospace' }}>{state.arm64.historico.maxSlope}</div>
+                    </div>
+                    <div style={{ background: '#ffffff', borderRadius: 6, padding: '8px 10px', border: '1px solid rgba(26,28,22,0.04)' }}>
+                      <div style={{ fontSize: 9, color: '#8a9280', textTransform: 'uppercase' }}>Aceleración (Máx)</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#9b2020', fontFamily: 'DM Mono,monospace' }}>{state.arm64.historico.maxAcceleration}</div>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+            </div>
+          </Panel>
+
+          <Panel title="Ultimos eventos" icon="ti-history" id="eventos">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 340, overflowY: 'auto' }}>
+              {state.eventos.length === 0
+                ? <div style={{ textAlign: 'center', color: '#8a9280', fontSize: 12, padding: '20px 0' }}>Sin eventos aun</div>
+                : state.eventos.map(ev => <EvItem key={ev.id} ev={ev} />)
+              }
+            </div>
+          </Panel>
+
+        </div>
       </div>
 
       {/* MQTT + Comandos */}

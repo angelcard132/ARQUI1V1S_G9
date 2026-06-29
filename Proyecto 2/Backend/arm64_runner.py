@@ -32,6 +32,7 @@ MODULOS = {
     "modulo_3_prediccion":     "resultado_prediccion.txt",
     "modulo_4_integral_error": "resultado_integral.txt",
     "modulo_5_derivada_local": "resultado_derivada.txt",
+    "analizador_historico":     "resultado_historico.txt",
 }
 
 
@@ -83,11 +84,13 @@ def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, l
         publicar_fn(f"invernadero/G9/arm64/{modulo}", json.dumps(err_res), qos=1)
         return
 
-    
-    fase2_mods = ["modulo_1_rmse", "modulo_2_regresion", "modulo_3_prediccion", "modulo_4_integral_error", "modulo_5_derivada_local"]
-    ARM64_DIR = "./arm64/arm63p2" if modulo in fase2_mods else "./arm64/arm64p1"
-    if not os.path.exists(ARM64_DIR) and not os.path.exists("./arm64"):
-        ARM64_DIR = "./arm63p2" if modulo in fase2_mods else "./arm64p1"
+    if modulo == "analizador_historico":
+        ARM64_DIR = "./arm64"
+    else:
+        fase2_mods = ["modulo_1_rmse", "modulo_2_regresion", "modulo_3_prediccion", "modulo_4_integral_error", "modulo_5_derivada_local"]
+        ARM64_DIR = "./arm64/arm63p2" if modulo in fase2_mods else "./arm64/arm64p1"
+        if not os.path.exists(ARM64_DIR) and not os.path.exists("./arm64"):
+            ARM64_DIR = "./arm63p2" if modulo in fase2_mods else "./arm64p1"
 
     # Ensure output directory exists
     os.makedirs(ARM64_DIR, exist_ok=True)
@@ -175,29 +178,60 @@ def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, l
     cmd_args = [f"./{modulo}", "lecturas.csv", "1", str(N_clean), columna, str(ideal)]
 
     try:
-        res_proc = subprocess.run(
-            cmd_args,
-            cwd=ARM64_DIR,
-            timeout=15,
-            check=True,
-            capture_output=True,
-            text=True
-        )
-        log_fn(f"[ARM64] {modulo} ejecutado con argumentos: {cmd_args}")
-        
-        if modulo == "modulo_1_rmse" and res_proc.stdout:
-            with open(out_path, "w", encoding="utf-8") as f_out:
-                f_out.write(res_proc.stdout)
-                
-    except subprocess.TimeoutExpired:
-        log_fn(f"[ARM64] {modulo} excedio el tiempo limite")
-        return
-    except subprocess.CalledProcessError as e:
-        log_fn(f"[ARM64] {modulo} termino con error: {e}")
-        if e.output:
-            log_fn(f"[ARM64 Stdout] {e.output.strip()}")
-        if e.stderr:
-            log_fn(f"[ARM64 Stderr] {e.stderr.strip()}")
+        try:
+            res_proc = subprocess.run(
+                cmd_args,
+                cwd=ARM64_DIR,
+                timeout=15,
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            log_fn(f"[ARM64] {modulo} ejecutado con argumentos: {cmd_args}")
+            
+            if modulo == "modulo_1_rmse" and res_proc.stdout:
+                with open(out_path, "w", encoding="utf-8") as f_out:
+                    f_out.write(res_proc.stdout)
+                    
+        except subprocess.TimeoutExpired:
+            log_fn(f"[ARM64] {modulo} excedio el tiempo limite")
+            err_res = {
+                "MODULE": "HISTORICAL_ANALYZER",
+                "STATUS": "ERROR",
+                "ERROR": "TIMEOUT",
+                "DETAIL": f"El módulo {modulo} excedió el tiempo límite de ejecución."
+            }
+            publicar_fn(f"invernadero/G9/arm64/{modulo}", json.dumps(err_res), qos=1)
+            return
+        except subprocess.CalledProcessError as e:
+            log_fn(f"[ARM64] {modulo} termino con error: {e}")
+            err_detail = e.stderr.strip() if e.stderr else (e.output.strip() if e.output else str(e))
+            parsed_err = {}
+            for part in err_detail.replace("\n", " ").split():
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    parsed_err[k.strip()] = v.strip()
+            
+            err_res = {
+                "MODULE": "HISTORICAL_ANALYZER",
+                "STATUS": "ERROR",
+                "ERROR": parsed_err.get("ERROR", "EXECUTION_ERROR"),
+                "DETAIL": parsed_err.get("DETAIL", err_detail)
+            }
+            publicar_fn(f"invernadero/G9/arm64/{modulo}", json.dumps(err_res), qos=1)
+            return
+        except Exception as e:
+            log_fn(f"[ARM64] Error al ejecutar binario {modulo}: {e}")
+            err_res = {
+                "MODULE": "HISTORICAL_ANALYZER",
+                "STATUS": "ERROR",
+                "ERROR": "EXECUTION_FAILED",
+                "DETAIL": str(e)
+            }
+            publicar_fn(f"invernadero/G9/arm64/{modulo}", json.dumps(err_res), qos=1)
+            return
+    except Exception as outer_e:
+        log_fn(f"[ARM64] Error general en orquestador para {modulo}: {outer_e}")
         return
 
     try:
