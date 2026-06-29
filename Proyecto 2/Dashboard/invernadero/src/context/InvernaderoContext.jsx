@@ -49,6 +49,11 @@ const initialState = {
     anomalias:  null,
     prediccion: null,
     tendencia:  null,
+    rmse:       null,
+    regresion:  null,
+    prediccionF2: null,
+    integral:   null,
+    derivada:   null,
     ultimoError: null,
   },
   arm64Ejecutando: null, // { modulo, columna } mientras espera resultado
@@ -305,8 +310,19 @@ export function InvernaderoProvider({ children }) {
           if (mod === 'WEIGHTED_MEAN')     arm.media      = { val: data.WEIGHTED_MEAN, sum: data.SUM_X, pesos: data.WEIGHT_SUM, ...meta }
           if (mod === 'VARIANCE')          arm.varianza   = { media: data.MEAN, varianza: data.VARIANCE, desv: data.STD_DEV, ...meta }
           if (mod === 'ANOMALY_DETECTION') arm.anomalias  = { cantidad: data.ANOMALIES, riesgo: data.SYSTEM_RISK, media: data.MEAN, ...meta }
-          if (mod === 'PREDICTION')        arm.prediccion = { inicial: data.INITIAL_VALUE, final: data.FINAL_VALUE, siguiente: data.NEXT_VALUE, cambio: data.AVG_CHANGE, ...meta }
+          if (mod === 'PREDICTION' && data.INTERCEPT_X100 === undefined) {
+            arm.prediccion = { inicial: data.INITIAL_VALUE, final: data.FINAL_VALUE, siguiente: data.NEXT_VALUE, cambio: data.AVG_CHANGE, ...meta }
+          }
+          if (mod === 'PREDICTION' && data.INTERCEPT_X100 !== undefined) {
+            arm.prediccionF2 = { slope: data.SLOPE_X100, intercept: data.INTERCEPT_X100, predicted: data.PREDICTED_10 || data.PREDICTED_5, k: data.K, ...meta }
+          }
           if (mod === 'ADVANCED_TREND')    arm.tendencia  = { trend: data.TREND, incrementos: data.INCREMENTS, decrementos: data.DECREMENTS, racha: data.MAX_UP_STREAK, acum: data.ACCUM_DIFF, ...meta }
+          
+          // Módulos Fase 2
+          if (mod === 'RMSE')              arm.rmse       = { rmse: data.RMSE, ideal: data.IDEAL, ...meta }
+          if (mod === 'LINEAR_REGRESSION') arm.regresion  = { slope: data.SLOPE_X100, trend: data.TREND, ...meta }
+          if (mod === 'ERROR_INTEGRAL')    arm.integral   = { integral: data.ERROR_INTEGRAL, ideal: data.IDEAL, ...meta }
+          if (mod === 'LOCAL_DERIVATIVE')  arm.derivada   = { maxSlope: data.MAX_LOCAL_SLOPE_X100, windowSize: data.WINDOW_SIZE, ...meta }
 
           if (Object.keys(arm).length) {
             dispatch({ type: 'ARM64', data: arm })

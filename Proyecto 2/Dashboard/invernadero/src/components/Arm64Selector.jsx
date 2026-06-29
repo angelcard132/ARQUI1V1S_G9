@@ -13,11 +13,19 @@ const COLUMNAS = [
 
 // Modulos ARM64 disponibles
 const MODULOS = [
-  { value: 'modulo_1_media',      label: 'Modulo 1 — Media ponderada'      },
-  { value: 'modulo_2_varianza',   label: 'Modulo 2 — Varianza y desv. est.'},
-  { value: 'modulo_3_anomalias',  label: 'Modulo 3 — Deteccion anomalias'  },
-  { value: 'modulo_4_prediccion', label: 'Modulo 4 — Prediccion lineal'    },
-  { value: 'modulo_5_tendencia',  label: 'Modulo 5 — Tendencia acumulada'  },
+  // Fase 1
+  { value: 'modulo_1_media',      label: 'F1 M1 — Media ponderada'      },
+  { value: 'modulo_2_varianza',   label: 'F1 M2 — Varianza y desv. est.'},
+  { value: 'modulo_3_anomalias',  label: 'F1 M3 — Detección anomalías'  },
+  { value: 'modulo_4_prediccion', label: 'F1 M4 — Predicción lineal'    },
+  { value: 'modulo_5_tendencia',  label: 'F1 M5 — Tendencia acumulada'  },
+  
+  // Fase 2
+  { value: 'modulo_1_rmse',           label: 'F2 R1 — RMSE (Error cuadrático medio)' },
+  { value: 'modulo_2_regresion',      label: 'F2 R2 — Regresión lineal simple'       },
+  { value: 'modulo_3_prediccion',     label: 'F2 R3 — Predicción futura (K=10)'     },
+  { value: 'modulo_4_integral_error', label: 'F2 R4 — Integral del error (Trapecio)' },
+  { value: 'modulo_5_derivada_local', label: 'F2 R5 — Derivada local suavizada'     },
 ]
 
 export default function Arm64Selector() {

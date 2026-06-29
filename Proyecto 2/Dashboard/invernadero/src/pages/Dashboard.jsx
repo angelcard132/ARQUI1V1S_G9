@@ -452,6 +452,108 @@ export default function Dashboard() {
             </ArmCard>
           </div>
 
+          {/* Separador para Fase 2 */}
+          <div style={{
+            height: 1,
+            background: 'rgba(26,28,22,0.08)',
+            margin: '24px 0 16px 0',
+            position: 'relative'
+          }}>
+            <span style={{
+              position: 'absolute',
+              top: '50%',
+              left: 12,
+              transform: 'translateY(-50%)',
+              background: '#fdfbf7',
+              padding: '0 8px',
+              fontSize: 10,
+              fontWeight: 600,
+              color: '#8a9280',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
+            }}>
+              Fase 2 — Nuevas Rutinas del Analizador
+            </span>
+          </div>
+
+          {/* Grid de 4 cards para Fase 2 */}
+          <div style={s.row2}>
+
+            <ArmCard
+              archivo="modulo_1_rmse.s"
+              titulo="RMSE (Error cuadrático)"
+              ok={!!state.arm64.rmse}
+              columna={state.arm64.rmse?.columna}
+            >
+              <ArmFila label="Ideal" value={state.arm64.rmse?.ideal} />
+              <ArmFila label="RMSE" value={state.arm64.rmse?.rmse} color="#b86b0a" />
+            </ArmCard>
+
+            <ArmCard
+              archivo="modulo_2_regresion.s"
+              titulo="Regresión Lineal Simple"
+              ok={!!state.arm64.regresion}
+              columna={state.arm64.regresion?.columna}
+            >
+              <ArmFila label="Pendiente x100" value={state.arm64.regresion?.slope} color="#3a6b1a" />
+              <ArmFila label="Tendencia" value={state.arm64.regresion?.trend} />
+            </ArmCard>
+
+            <ArmCard
+              archivo="modulo_3_prediccion.s"
+              titulo="Predicción Futura"
+              ok={!!state.arm64.prediccionF2}
+              columna={state.arm64.prediccionF2?.columna}
+            >
+              <ArmFila label="Proyección K" value={state.arm64.prediccionF2?.k} />
+              <ArmFila label="Pendiente x100" value={state.arm64.prediccionF2?.slope} />
+              <ArmFila label="Intercepto x100" value={state.arm64.prediccionF2?.intercept} />
+              <ArmFila label="Predicción futura" value={state.arm64.prediccionF2?.predicted} color="#3a6b1a" />
+            </ArmCard>
+
+            <ArmCard
+              archivo="modulo_4_integral_error.s"
+              titulo="Integral del Error (Trapecio)"
+              ok={!!state.arm64.integral}
+              columna={state.arm64.integral?.columna}
+            >
+              <ArmFila label="Ideal" value={state.arm64.integral?.ideal} />
+              <ArmFila label="Integral" value={state.arm64.integral?.integral} color="#b86b0a" />
+            </ArmCard>
+
+          </div>
+
+          {/* Card 5 Fase 2 */}
+          <div style={{ marginTop: 10 }}>
+            <ArmCard
+              archivo="modulo_5_derivada_local.s"
+              titulo="Derivada Suavizada Local"
+              ok={!!state.arm64.derivada}
+              columna={state.arm64.derivada?.columna}
+            >
+              {state.arm64.derivada
+                ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <i className="ti ti-activity" style={{ fontSize: 22, color: '#b86b0a' }} />
+                      <span style={{
+                        fontFamily: 'Fraunces,Georgia,serif', fontSize: 20, fontWeight: 500,
+                        color: '#b86b0a',
+                      }}>
+                        Derivada Local
+                      </span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <ArmFila label="Tamaño de ventana" value={state.arm64.derivada.windowSize} />
+                      <ArmFila label="Máxima Pendiente x100" value={state.arm64.derivada.maxSlope} color="#9b2020" />
+                    </div>
+                  </div>
+                )
+                : <span style={{ fontSize: 11, color: '#8a9280', fontStyle: 'italic' }}>Esperando ejecución...</span>
+              }
+            </ArmCard>
+          </div>
+
         </Panel>
 
         <Panel title="Ultimos eventos" icon="ti-history" id="eventos">

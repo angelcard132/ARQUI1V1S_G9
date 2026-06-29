@@ -1,5 +1,5 @@
 export const MQTT_CONFIG = {
-  broker: 'wss://unpainted-rope-matron.ngrok-free.dev/mqtt',
+  broker: 'wss://broker.emqx.io:8084/mqtt',
   clientId: 'G9_dashboard_' + Math.random().toString(36).slice(2, 8),
   user: '',
   pass: '',

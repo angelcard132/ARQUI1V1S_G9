@@ -10,3 +10,6 @@ aarch64-linux-gnu-as -g -o motor_main.o motor_main.s
 aarch64-linux-gnu-as -g -o motor_indicadores.o motor_indicadores.s
 aarch64-linux-gnu-as -g -o motor_salida.o motor_salida.s
 aarch64-linux-gnu-ld -o motor_vivo_nuevo motor_main.o motor_indicadores.o motor_salida.o
+
+TUNEL PARA DESPLIEGUE
+ngrok http 9001
