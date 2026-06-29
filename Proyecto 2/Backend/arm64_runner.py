@@ -99,6 +99,7 @@ def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, l
     import csv
 
     target_csv = os.path.join(ARM64_DIR, "lecturas.csv")
+    N_clean = 0
     try:
         # Leer filas de datos
         data_rows = []
@@ -140,6 +141,8 @@ def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, l
                 if val.isdigit() or (val.startswith('-') and val[1:].isdigit()):
                     row[1] = val
                     rows_to_write.append(row)
+        
+        N_clean = len(rows_to_write) - 1
         rows_to_write.append(['$'])
 
         with open(target_csv, mode='w', newline='', encoding='utf-8') as f:
@@ -169,7 +172,7 @@ def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, l
     elif columna == "LUZ": ideal = 500
     elif columna == "GAS": ideal = 150
     
-    cmd_args = [f"./{modulo}", "lecturas.csv", str(l_ini), str(l_fin), columna, str(ideal)]
+    cmd_args = [f"./{modulo}", "lecturas.csv", "1", str(N_clean), columna, str(ideal)]
 
     try:
         res_proc = subprocess.run(

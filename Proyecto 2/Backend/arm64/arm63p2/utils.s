@@ -13,34 +13,6 @@ len_err_range = . - err_range
 err_column: .ascii "ERROR=INVALID_COLUMN\n"
 len_err_column = . - err_column
 
-
-col_id_name:
-    .asciz "ID"
-
-col_temp_name:
-    .asciz "TEMP"
-
-col_hum_aire_name:
-    .asciz "HUM_AIRE"
-
-col_hum_suelo1_name:
-    .asciz "HUM_SUELO_1"
-
-col_hum_suelo2_name:
-    .asciz "HUM_SUELO_2"
-
-col_luz_name:
-    .asciz "LUZ"
-
-col_gas_name:
-    .asciz "GAS"
-
-col_riego1_name:
-    .asciz "RIEGO_1"
-
-col_riego2_name:
-    .asciz "RIEGO_2"
-
 // Mensajes reutilizables para errores estructurados
 .global lbl_status_err
 lbl_status_err: .ascii "STATUS=ERROR\n"
@@ -114,11 +86,6 @@ read_csv:
 
     adr x9, csv_bytes_read
     str x0, [x9]
-
-    adr x10, csv_buffer
-    add x10, x10, x0
-    mov w11, #0
-    strb w11, [x10]
 
     mov x0, x19
     mov x8, #57
@@ -367,134 +334,51 @@ rrc_exit:
     ret
 
 column_name_to_index:
-    sub sp, sp, #16
-    str x30, [sp]
-    str x19, [sp, #8]
-
-    mov x19, x0
-
-    mov x0, x19
-    ldr x1, =col_id_name
-    bl str_equals
-    cmp x0, #1
-    beq col_id
-
-    mov x0, x19
-    ldr x1, =col_temp_name
-    bl str_equals
-    cmp x0, #1
+    ldrb w9, [x0]
+    cmp w9, #'T'
     beq col_temp
-
-    mov x0, x19
-    ldr x1, =col_hum_aire_name
-    bl str_equals
-    cmp x0, #1
-    beq col_hum_aire
-
-    mov x0, x19
-    ldr x1, =col_hum_suelo1_name
-    bl str_equals
-    cmp x0, #1
-    beq col_hum_suelo1
-
-    mov x0, x19
-    ldr x1, =col_hum_suelo2_name
-    bl str_equals
-    cmp x0, #1
-    beq col_hum_suelo2
-
-    mov x0, x19
-    ldr x1, =col_luz_name
-    bl str_equals
-    cmp x0, #1
+    cmp w9, #'H'
+    beq col_hum
+    cmp w9, #'S'
+    beq col_soil
+    cmp w9, #'L'
     beq col_luz
-
-    mov x0, x19
-    ldr x1, =col_gas_name
-    bl str_equals
-    cmp x0, #1
+    cmp w9, #'G'
     beq col_gas
-
-    mov x0, x19
-    ldr x1, =col_riego1_name
-    bl str_equals
-    cmp x0, #1
-    beq col_riego1
-
-    mov x0, x19
-    ldr x1, =col_riego2_name
-    bl str_equals
-    cmp x0, #1
-    beq col_riego2
-
     mov x0, #-1
-    b col_return
-
-col_id:
-    mov x0, #0
-    b col_return
+    ret
 
 col_temp:
     mov x0, #1
-    b col_return
+    ret
 
-col_hum_aire:
+col_hum:
     mov x0, #2
-    b col_return
+    ret
 
-col_hum_suelo1:
+col_soil:
+    ldrb w9, [x0, #4]
+    cmp w9, #'1'
+    beq col_soil1
+    cmp w9, #'2'
+    beq col_soil2
+    mov x0, #-1
+    ret
+
+col_soil1:
     mov x0, #3
-    b col_return
+    ret
 
-col_hum_suelo2:
+col_soil2:
     mov x0, #4
-    b col_return
+    ret
 
 col_luz:
     mov x0, #5
-    b col_return
+    ret
 
 col_gas:
     mov x0, #6
-    b col_return
-
-col_riego1:
-    mov x0, #7
-    b col_return
-
-col_riego2:
-    mov x0, #8
-
-col_return:
-    ldr x30, [sp]
-    ldr x19, [sp, #8]
-    add sp, sp, #16
-    ret
-
-str_equals:
-    mov x2, x0
-    mov x3, x1
-
-str_eq_loop:
-    ldrb w4, [x2]
-    ldrb w5, [x3]
-
-    cmp w4, w5
-    bne str_eq_false
-
-    cmp w4, #0
-    beq str_eq_true
-
-    add x2, x2, #1
-    add x3, x3, #1
-    b str_eq_loop
-
-str_eq_true:
-    mov x0, #1
-    ret
-
-str_eq_false:
-    mov x0, #0
     ret
 
 parse_int:
