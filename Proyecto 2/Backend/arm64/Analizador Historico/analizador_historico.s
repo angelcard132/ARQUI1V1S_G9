@@ -227,6 +227,8 @@ _start:
     mov x2, x21
     adr x3, values
     bl read_range_column
+    cmp x0, #0
+    blt error_range_lbl
     cmp x0, #2
     blt error_data_lbl
 
@@ -255,7 +257,7 @@ set_ideal:
     cmp w9, #'T'
     beq ideal_temp
     cmp w9, #'H'
-    beq ideal_hum_check
+    beq ideal_hum
     cmp w9, #'S'
     beq ideal_soil
     cmp w9, #'L'
@@ -265,12 +267,6 @@ set_ideal:
 
     mov x9, #50
     b ideal_save
-
-ideal_hum_check:
-    ldrb w9, [x0, #4]
-    cmp w9, #'S'
-    beq ideal_soil
-    b ideal_hum
 
 ideal_temp:
     mov x9, #25
@@ -297,6 +293,9 @@ ideal_save:
     ret
 
 calc_rmse:
+    sub sp, sp, #16
+    str x30, [sp]
+
     adr x24, values
     adr x9, val_ideal
     ldr x20, [x9]
@@ -325,8 +324,10 @@ rmse_done:
     bl sqrt_int
     adr x9, val_rmse
     str x0, [x9]
-    ret
 
+    ldr x30, [sp]
+    add sp, sp, #16
+    ret
 calc_regression:
     mov x22, #0
     mov x23, #0
@@ -455,6 +456,9 @@ pred_calc:
     ret
 
 calc_integral:
+    sub sp, sp, #16
+    str x30, [sp]
+
     adr x9, val_ideal
     ldr x20, [x9]
 
@@ -494,9 +498,14 @@ int_loop:
 int_save:
     adr x9, val_integral
     str x22, [x9]
-    ret
 
+    ldr x30, [sp]
+    add sp, sp, #16
+    ret
 calc_derivative:
+    sub sp, sp, #16
+    str x30, [sp]
+
     mov x22, #0
     cmp x19, #5
     blt deriv_save
@@ -555,8 +564,10 @@ deriv_next:
 deriv_save:
     adr x9, val_deriv
     str x22, [x9]
-    ret
 
+    ldr x30, [sp]
+    add sp, sp, #16
+    ret
 save_recommendation:
     adr x9, arg_col
     ldr x0, [x9]
@@ -566,22 +577,7 @@ save_recommendation:
     beq rec_soil
     cmp w9, #'T'
     beq rec_temp
-    cmp w9, #'H'
-    beq rec_hum_rec_check
 
-    adr x9, rec_normal
-    adr x10, val_rec_ptr
-    str x9, [x10]
-    mov x9, #len_rec_normal
-    adr x10, val_rec_len
-    str x9, [x10]
-    b reason_normal_save
-
-rec_hum_rec_check:
-    ldrb w9, [x0, #4]
-    cmp w9, #'S'
-    beq rec_soil
-    
     adr x9, rec_normal
     adr x10, val_rec_ptr
     str x9, [x10]
@@ -594,9 +590,6 @@ rec_soil:
     adr x9, arg_col
     ldr x0, [x9]
     ldrb w9, [x0, #4]
-    cmp w9, #'2'
-    beq rec_soil2
-    ldrb w9, [x0, #10]
     cmp w9, #'2'
     beq rec_soil2
 
@@ -644,6 +637,9 @@ reason_normal_save:
     ret
 
 write_results:
+    sub sp, sp, #16
+    str x30, [sp]
+
     adr x9, val_rmse
     ldr x9, [x9]
     mov x10, #4
@@ -774,6 +770,9 @@ write_results:
     adr x9, fd_out
     ldr x0, [x9]
     bl close_fd
+
+    ldr x30, [sp]
+    add sp, sp, #16
     ret
 
 write_fd:

@@ -85,7 +85,7 @@ def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, l
         return
 
     if modulo == "analizador_historico":
-        ARM64_DIR = "./arm64"
+        ARM64_DIR = "./arm64/Analizador Historico"
     else:
         fase2_mods = ["modulo_1_rmse", "modulo_2_regresion", "modulo_3_prediccion", "modulo_4_integral_error", "modulo_5_derivada_local"]
         ARM64_DIR = "./arm64/arm63p2" if modulo in fase2_mods else "./arm64/arm64p1"
