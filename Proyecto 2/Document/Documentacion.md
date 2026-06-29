@@ -4,7 +4,7 @@
 **Universidad de San Carlos de Guatemala**  
 Facultad de Ingeniería 
 Ingeniería en Ciencias y Sistemas  
-Curso: Arquitectura de Equipos y Comunicación 1 (AEYC1) 
+Curso: Arquitectura de Equipos y Comunicación 1
 
 
 | Nombre                       | Carnet    |
@@ -125,6 +125,8 @@ El analizador histórico es el segundo componente ARM64 de la Fase 2. Recibe des
 - Calcular los cinco indicadores obligatorios: RMSE respecto al ideal, regresión lineal, predicción futura, integral del error por regla del trapecio y derivada suavizada.
 - Retornar los resultados en el formato de salida definido para ser guardados por Python en MongoDB.
 
+![alt text](img/analizador_historico.png)
+
 ### 4.5 Capa de Datos — MongoDB Atlas
 
 MongoDB Atlas almacena toda la información generada por el sistema. Las colecciones principales son:
@@ -161,11 +163,27 @@ El dashboard web es una aplicación web con las siguientes características:
 ![alt text](img/dashboard.png)
 ---
 
-## 5. Módulos ARM64 por Integrante
+
+## 5. Información importante:
+
+La informacion que hay que tener en cuenta para poder tener la experiencia como usuario del 100% efectiva, es saber que para entrar como login las credenciales son estas: 
+
+Usuario: admin
+
+Contraseña: admin123
+
+![alt text](img/login.png)
+---
+
+URL del fronted ya desplegado: https://angelcard132.github.io/ARQUI1V1S_G9/
+
+
+
+## 6. Módulos ARM64 por Integrante
 
 Cada integrante del grupo desarrolló e implementó un módulo ARM64 propio. A continuación se describe cada módulo:
 
-### 5.1 Módulo de [Dina Rebeca Perez]
+### 6.1 Módulo de [Dina Rebeca Perez]
 
 **Modulo_1_rmse.s**
 
@@ -174,12 +192,15 @@ Esta rutina calcula qué tanto se aleja la variable analizada respecto a un valo
 
 **Pseudocódigo ARM64:**
 
-**Validaciones implementadas:**
+![alt text](img/modulo1im1.png)
+![alt text](img/modulo1im2.png)
+![alt text](img/modulo1gdb.png)
+
 
 
 ---
 
-### 5.2 Módulo de [Oliverio Abraham Caal]
+### 6.2 Módulo de [Oliverio Abraham Caal]
 
 **Modulo_2_regresion.s**
 
@@ -188,14 +209,13 @@ Esta rutina calcula la tendencia general de la variable dentro de la ventana
 seleccionada. 
 No acepta calcular la tendencia únicamente con el primer y último valor. 
 **Pseudocódigo ARM64:**
-
-
-**Validaciones implementadas:**
-
+![alt text](img/modulo2arm.png)
+![alt text](img/modulo2arm2.png)
+![alt text](img/modulo2gdb.png)
 
 ---
 
-### 5.3 Módulo de [Tulio Jafeth Pirir] 
+### 6.3 Módulo de [Tulio Jafeth Pirir] 
 
 **Modulo_3_prediccion.s**
 
@@ -204,12 +224,15 @@ Esta rutina estima un valor futuro usando la recta calculada mediante regresión
 lineal. 
 La predicción se realiza para K lecturas futuras. Si no se recibe K, podrá usarse K = 5.
 
-**Pseudocódigo ARM64:**
+**Pseudocódigo ARM64:** 
+
+![alt text](img/modulo3arm1.png)
+![alt text](img/modulo3arm2.png)
+![alt text](img/modulo3agdb.png)
 
 
-**Validaciones implementadas:**
 
-### 5.4 Módulo de [Astrid Vanessa Kim] 
+### 6.4 Módulo de [Astrid Vanessa Kim] 
 
 **Modulo_4_integral_error.s**
 
@@ -218,10 +241,11 @@ Esta rutina calcula el error acumulado de la variable respecto a un valor ideal
 
 **Pseudocódigo ARM64:**
 
+![alt text](img/modulo4arm1.png)
+![alt text](img/modulo4arm2.png)
+![alt text](img/modulo4gdb.png)
 
-**Validaciones implementadas:**
-
-### 5.5 Módulo de [Angel Jose Cardenas] 
+### 6.5 Módulo de [Angel Jose Cardenas] 
 
 **Modulo_5_derivada_local.s**
 
@@ -230,12 +254,13 @@ Esta rutina calcula la velocidad de cambio local usando mini-ventanas internas d
 No acepta calcular la derivada únicamente como resta entre dos puntos consecutivos. 
 
 **Pseudocódigo ARM64:**
+![alt text](img/modulo5arm1.png)
+![alt text](img/modulo5arm2.png)
+![alt text](img/modulo5gdb.png)
 
-
-**Validaciones implementadas:**
 ---
 
-## 6. Integración Python — ARM64
+## 7. Integración Python — ARM64
 
 La comunicación entre Python y los módulos ARM64 se realiza mediante el mecanismo de stdin/stdout, donde Python actúa como proceso padre y ARM64 como proceso hijo.
 
@@ -276,7 +301,7 @@ El motor ARM64 maneja los siguientes casos de error retornando códigos o mensaj
 Ejemplo:
 > ```json
 > {
->   "timestamp": "2026-08-01T14:30:00Z",
+>   "timestamp": "2026-26-06T14:30:00Z",
 >   "temperatura": 25.3,
 >   "humedad": 68.1,
 >   "luz": 820,
