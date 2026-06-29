@@ -1,5 +1,5 @@
-Astrid Vanesa Kim Ortiz
-202300685
+// Astrid Vanesa Kim Ortiz
+// 202300685
 
 .section .data
 
