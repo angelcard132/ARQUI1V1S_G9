@@ -382,18 +382,28 @@ def ejecutar_modulo_individual(modulo, columna, publicar_fn, guardar_arm64_fn, l
             cmd_args.append(str(ideal))
 
         try:
-            subprocess.run(
+            res_proc = subprocess.run(
                 cmd_args,
                 cwd=ARM64_DIR,
                 timeout=15,
                 check=True,
+                capture_output=True,
+                text=True
             )
             log_fn(f"[ARM64] {modulo} ejecutado con argumentos: {cmd_args}")
+            
+            
+            if modulo == "modulo_1_rmse" and res_proc.stdout:
+                with open(out_path, "w", encoding="utf-8") as f_out:
+                    f_out.write(res_proc.stdout)
+                    
         except subprocess.TimeoutExpired:
             log_fn(f"[ARM64] {modulo} excedio el tiempo limite")
             return
         except subprocess.CalledProcessError as e:
             log_fn(f"[ARM64] {modulo} termino con error: {e}")
+            if e.stderr:
+                log_fn(f"[ARM64 Stderr] {e.stderr}")
             return
 
     try:
