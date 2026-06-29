@@ -853,6 +853,93 @@ export default function Dashboard() {
         </Panel>
       </div>
 
+      {/* Registro de Errores */}
+      <Panel title="Registro de errores del sistema" icon="ti-alert-triangle" id="errores"
+        right={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {state.errores.length > 0 && (
+              <span style={{
+                fontSize: 9, padding: '2px 8px', borderRadius: 20,
+                background: '#fde8e8', color: '#9b2020',
+                fontFamily: 'DM Mono,monospace', fontWeight: 600
+              }}>
+                {state.errores.length} error{state.errores.length !== 1 ? 'es' : ''}
+              </span>
+            )}
+          </div>
+        }
+      >
+        {state.errores.length === 0
+          ? (
+            <div style={{
+              textAlign: 'center', padding: '28px 0',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8
+            }}>
+              <i className="ti ti-circle-check" style={{ fontSize: 28, color: '#3a6b1a', opacity: 0.5 }} />
+              <span style={{ color: '#8a9280', fontSize: 12, fontFamily: 'DM Sans,system-ui,sans-serif' }}>
+                Sin errores registrados — el sistema funciona correctamente
+              </span>
+            </div>
+          )
+          : (
+            <div style={{ overflowY: 'auto', maxHeight: 340 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: 'DM Sans,system-ui,sans-serif' }}>
+                <thead>
+                  <tr>
+                    {['Hora', 'Origen', 'Tipo', 'Detalle'].map(h => (
+                      <th key={h} style={{
+                        textAlign: 'left', padding: '5px 8px',
+                        color: '#8a9280', fontSize: 10, textTransform: 'uppercase',
+                        borderBottom: '1px solid rgba(155,32,32,0.12)',
+                        background: '#fdf8f8'
+                      }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.errores.map(e => (
+                    <tr key={e.id} style={{
+                      borderBottom: '1px solid rgba(155,32,32,0.06)',
+                      background: 'rgba(253,232,232,0.3)',
+                      transition: 'background 0.15s'
+                    }}>
+                      <td style={{
+                        padding: '7px 8px', fontFamily: 'DM Mono,monospace',
+                        color: '#9b2020', fontSize: 11, whiteSpace: 'nowrap'
+                      }}>
+                        {e.hora}
+                      </td>
+                      <td style={{ padding: '7px 8px', color: '#4a5240', fontSize: 11 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <i className="ti ti-cpu" style={{ fontSize: 11, color: '#9b2020', opacity: 0.7 }} />
+                          {e.origen}
+                        </div>
+                      </td>
+                      <td style={{ padding: '7px 8px' }}>
+                        <span style={{
+                          fontSize: 9, padding: '2px 8px', borderRadius: 20,
+                          fontFamily: 'DM Mono,monospace', fontWeight: 600,
+                          background: '#fde8e8', color: '#9b2020'
+                        }}>
+                          {e.tipo}
+                        </span>
+                      </td>
+                      <td style={{
+                        padding: '7px 8px', color: '#6b3030', fontSize: 11,
+                        fontFamily: 'DM Mono,monospace', maxWidth: 300,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                      }}>
+                        {e.detalle}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
+      </Panel>
+
     </div>
   )
 }

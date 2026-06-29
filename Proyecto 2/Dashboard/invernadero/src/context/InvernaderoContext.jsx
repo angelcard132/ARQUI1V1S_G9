@@ -41,6 +41,7 @@ const initialState = {
 
   eventos:   [],
   comandos:  [],
+  errores:   [],
 
   // ARM64 — ahora cada modulo guarda tambien que columna se uso
   arm64: {
@@ -106,6 +107,11 @@ function reducer(state, action) {
     case 'COMANDO': {
       const cmds = [action.comando, ...state.comandos].slice(0, 30)
       return { ...state, comandos: cmds }
+    }
+
+    case 'ERROR_LOG': {
+      const errs = [action.error, ...state.errores].slice(0, 50)
+      return { ...state, errores: errs }
     }
 
     case 'ARM64':
@@ -288,16 +294,28 @@ export function InvernaderoProvider({ children }) {
         // Topic: invernadero/G9/arm64/modulo_X_nombre
         if (sub.startsWith('arm64/')) {
           if (data.STATUS === 'ERROR') {
+            const moduloName = sub.replace('arm64/', '')
             const errorMsg = `Error: ${data.ERROR} - ${data.DETAIL || ''}`;
             addEvento(errorMsg, 'danger');
             dispatch({
               type: 'ARM64',
               data: {
                 ultimoError: {
-                  modulo: sub.replace('arm64/', ''),
+                  modulo: moduloName,
                   error: data.ERROR,
                   detail: data.DETAIL || 'Error desconocido'
                 }
+              }
+            });
+            dispatch({
+              type: 'ERROR_LOG',
+              error: {
+                id: Date.now(),
+                hora: new Date().toLocaleTimeString('es-GT', { hour:'2-digit', minute:'2-digit', second:'2-digit' }),
+                origen: `ARM64 / ${moduloName}`,
+                tipo: data.ERROR || 'EXECUTION_ERROR',
+                detalle: data.DETAIL || 'Error desconocido',
+                severidad: 'error'
               }
             });
             return;
@@ -377,6 +395,17 @@ export function InvernaderoProvider({ children }) {
     client.on('error', (err) => {
       console.error('[MQTT] Error:', err)
       dispatch({ type: 'MQTT_STATUS', connected: false, status: 'Error de conexion' })
+      dispatch({
+        type: 'ERROR_LOG',
+        error: {
+          id: Date.now(),
+          hora: new Date().toLocaleTimeString('es-GT', { hour:'2-digit', minute:'2-digit', second:'2-digit' }),
+          origen: 'MQTT Broker',
+          tipo: 'CONNECTION_ERROR',
+          detalle: err?.message || 'Error de conexión con el broker MQTT',
+          severidad: 'error'
+        }
+      });
     })
 
     client.on('close', () => {
